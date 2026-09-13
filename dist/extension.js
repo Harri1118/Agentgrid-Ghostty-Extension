@@ -171,8 +171,8 @@ var GHOSTTY_PRESETS = [
     id: "ghostty-default-dark",
     label: "Ghostty Default (Dark)",
     config: {
-      font_size: 14,
-      cursor_style: "bar",
+      font_size: 13,
+      cursor_style: "block",
       cursor_style_blink: true,
       scrollback_limit: 1e4,
       mouse_hide_while_typing: true,
@@ -180,28 +180,28 @@ var GHOSTTY_PRESETS = [
       bold_is_bright: false
     },
     terminalTheme: {
-      background: "#0b0e14",
-      foreground: "#bfbdb6",
-      cursor: "#59c2ff",
-      cursorAccent: "#0b0e14",
-      selectionBackground: "#264f78",
-      selectionForeground: "#ffffff",
-      black: "#01060e",
-      red: "#ea6c73",
-      green: "#91b362",
-      yellow: "#f9af4f",
-      blue: "#53bdfa",
-      magenta: "#fae994",
-      cyan: "#90e1c6",
-      white: "#c7c7c7",
-      brightBlack: "#686868",
-      brightRed: "#f07178",
-      brightGreen: "#c2d94c",
-      brightYellow: "#ffb454",
-      brightBlue: "#59c2ff",
-      brightMagenta: "#ffee99",
-      brightCyan: "#95e6cb",
-      brightWhite: "#ffffff"
+      background: "#282c34",
+      foreground: "#ffffff",
+      cursor: "#ffffff",
+      cursorAccent: "#353a44",
+      selectionBackground: "#ffffff",
+      selectionForeground: "#282c34",
+      black: "#1d1f21",
+      red: "#cc6566",
+      green: "#b6bd68",
+      yellow: "#f0c674",
+      blue: "#82a2be",
+      magenta: "#b294bb",
+      cyan: "#8abeb7",
+      white: "#c4c8c6",
+      brightBlack: "#666666",
+      brightRed: "#d54e53",
+      brightGreen: "#b9ca4b",
+      brightYellow: "#e7c547",
+      brightBlue: "#7aa6da",
+      brightMagenta: "#c397d8",
+      brightCyan: "#70c0b1",
+      brightWhite: "#eaeaea"
     }
   },
   {
@@ -415,16 +415,83 @@ function activate(context) {
     return context.globalState.get("terminalTheme") ?? GHOSTTY_PRESETS[0].terminalTheme;
   });
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd);
-  const savedPreset = context.globalState.get("activePreset");
-  if (savedPreset) {
-    applyPreset(api, context, savedPreset);
-  } else {
-    applyPreset(api, context, "ghostty-default-dark");
-  }
+  loadRealGhosttyConfig(api, context);
   console.log("[ghostty] extension activated");
 }
 function deactivate() {
   console.log("[ghostty] extension deactivated");
+}
+function loadRealGhosttyConfig(api, context) {
+  const basePreset = GHOSTTY_PRESETS[0];
+  let theme = { ...basePreset.terminalTheme };
+  let config = { ...basePreset.config };
+  const ghosttyThemeFile = resolveGhosttyThemeFile();
+  if (ghosttyThemeFile) {
+    try {
+      const raw = import_node_fs.default.readFileSync(ghosttyThemeFile, "utf-8");
+      const parsed = parseGhosttyConfig(raw);
+      const themeOverrides = extractTerminalTheme(parsed);
+      theme = { ...theme, ...themeOverrides };
+      if (parsed.cursor_style) {
+        config.cursor_style = parsed.cursor_style;
+      }
+      if (typeof parsed.cursor_style_blink === "boolean") {
+        config.cursor_style_blink = parsed.cursor_style_blink;
+      }
+      if (typeof parsed.font_size === "number") {
+        config.font_size = parsed.font_size;
+      }
+      if (typeof parsed.scrollback_limit === "number") {
+        config.scrollback_limit = parsed.scrollback_limit;
+      }
+    } catch (err) {
+      console.warn("[ghostty] failed to read default theme file:", err);
+    }
+  }
+  const configPath = resolveGhosttyConfigPath();
+  if (configPath && import_node_fs.default.existsSync(configPath)) {
+    try {
+      const raw = import_node_fs.default.readFileSync(configPath, "utf-8");
+      const parsed = parseGhosttyConfig(raw);
+      if (parsed.theme) {
+        const namedThemePath = resolveNamedTheme(parsed.theme);
+        if (namedThemePath) {
+          try {
+            const themeRaw = import_node_fs.default.readFileSync(namedThemePath, "utf-8");
+            const themeParsed = parseGhosttyConfig(themeRaw);
+            const themeOverrides = extractTerminalTheme(themeParsed);
+            theme = { ...theme, ...themeOverrides };
+          } catch {
+            console.warn(`[ghostty] failed to read named theme: ${parsed.theme}`);
+          }
+        }
+      }
+      const userOverrides = extractTerminalTheme(parsed);
+      theme = { ...theme, ...userOverrides };
+      if (parsed.font_family) {
+        config.font_family = parsed.font_family;
+      }
+      if (parsed.cursor_style) {
+        config.cursor_style = parsed.cursor_style;
+      }
+      if (typeof parsed.cursor_style_blink === "boolean") {
+        config.cursor_style_blink = parsed.cursor_style_blink;
+      }
+      if (typeof parsed.font_size === "number") {
+        config.font_size = parsed.font_size;
+      }
+      if (typeof parsed.scrollback_limit === "number") {
+        config.scrollback_limit = parsed.scrollback_limit;
+      }
+    } catch (err) {
+      console.warn("[ghostty] failed to read user config:", err);
+    }
+  }
+  context.globalState.update("activePreset", "auto");
+  context.globalState.update("terminalTheme", theme);
+  context.globalState.update("terminalConfig", config);
+  api.settings.update("ghostty.terminalTheme", theme);
+  api.settings.update("ghostty.terminalConfig", config);
 }
 function applyPreset(api, context, presetId) {
   const preset = GHOSTTY_PRESETS.find((p) => p.id === presetId);
@@ -439,25 +506,8 @@ function applyPreset(api, context, presetId) {
   return { ok: true, preset: preset.id };
 }
 function importGhosttyConfig(api, context) {
-  const configPath = resolveGhosttyConfigPath();
-  if (!configPath || !import_node_fs.default.existsSync(configPath)) {
-    return { ok: false, error: "Ghostty config not found at ~/.config/ghostty/config" };
-  }
-  try {
-    const raw = import_node_fs.default.readFileSync(configPath, "utf-8");
-    const config = parseGhosttyConfig(raw);
-    const themeOverrides = extractTerminalTheme(config);
-    const basePreset = GHOSTTY_PRESETS[0];
-    const mergedTheme = { ...basePreset.terminalTheme, ...themeOverrides };
-    context.globalState.update("activePreset", "imported");
-    context.globalState.update("terminalTheme", mergedTheme);
-    context.globalState.update("terminalConfig", config);
-    api.settings.update("ghostty.terminalTheme", mergedTheme);
-    api.settings.update("ghostty.terminalConfig", config);
-    return { ok: true, imported: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
+  loadRealGhosttyConfig(api, context);
+  return { ok: true, imported: true };
 }
 function resolveGhosttyConfigPath() {
   const xdgConfig = process.env["XDG_CONFIG_HOME"];
@@ -468,6 +518,26 @@ function resolveGhosttyConfigPath() {
   }
   if (import_node_fs.default.existsSync(homeConfig)) {
     return homeConfig;
+  }
+  return null;
+}
+function resolveGhosttyThemeFile() {
+  const bundledPath = "/Applications/Ghostty.app/Contents/Resources/ghostty/themes/Ghostty Default Style Dark";
+  if (import_node_fs.default.existsSync(bundledPath)) {
+    return bundledPath;
+  }
+  return null;
+}
+function resolveNamedTheme(themeName) {
+  const xdgConfig = process.env["XDG_CONFIG_HOME"];
+  const userThemeDir = xdgConfig ? import_node_path.default.join(xdgConfig, "ghostty", "themes") : import_node_path.default.join(import_node_os.default.homedir(), ".config", "ghostty", "themes");
+  const userPath = import_node_path.default.join(userThemeDir, themeName);
+  if (import_node_fs.default.existsSync(userPath)) {
+    return userPath;
+  }
+  const bundledPath = `/Applications/Ghostty.app/Contents/Resources/ghostty/themes/${themeName}`;
+  if (import_node_fs.default.existsSync(bundledPath)) {
+    return bundledPath;
   }
   return null;
 }

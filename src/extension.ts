@@ -68,19 +68,82 @@ export function activate(context: ExtensionContext): void {
 
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd)
 
-  const savedPreset = context.globalState.get<string>('activePreset')
-
-  if (savedPreset) {
-    applyPreset(api, context, savedPreset)
-  } else {
-    applyPreset(api, context, 'ghostty-default-dark')
-  }
+  loadRealGhosttyConfig(api, context)
 
   console.log('[ghostty] extension activated')
 }
 
 export function deactivate(): void {
   console.log('[ghostty] extension deactivated')
+}
+
+function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): void {
+  const basePreset = GHOSTTY_PRESETS[0]!
+  let theme: GhosttyTerminalTheme = { ...basePreset.terminalTheme }
+  let config = { ...basePreset.config }
+
+  const ghosttyThemeFile = resolveGhosttyThemeFile()
+
+  if (ghosttyThemeFile) {
+    try {
+      const raw = fs.readFileSync(ghosttyThemeFile, 'utf-8')
+      const parsed = parseGhosttyConfig(raw)
+      const themeOverrides = extractTerminalTheme(parsed)
+
+      theme = { ...theme, ...themeOverrides }
+
+      if (parsed.cursor_style) { config.cursor_style = parsed.cursor_style }
+      if (typeof parsed.cursor_style_blink === 'boolean') { config.cursor_style_blink = parsed.cursor_style_blink }
+      if (typeof parsed.font_size === 'number') { config.font_size = parsed.font_size }
+      if (typeof parsed.scrollback_limit === 'number') { config.scrollback_limit = parsed.scrollback_limit }
+    } catch (err) {
+      console.warn('[ghostty] failed to read default theme file:', err)
+    }
+  }
+
+  const configPath = resolveGhosttyConfigPath()
+
+  if (configPath && fs.existsSync(configPath)) {
+    try {
+      const raw = fs.readFileSync(configPath, 'utf-8')
+      const parsed = parseGhosttyConfig(raw)
+
+      if (parsed.theme) {
+        const namedThemePath = resolveNamedTheme(parsed.theme)
+
+        if (namedThemePath) {
+          try {
+            const themeRaw = fs.readFileSync(namedThemePath, 'utf-8')
+            const themeParsed = parseGhosttyConfig(themeRaw)
+            const themeOverrides = extractTerminalTheme(themeParsed)
+
+            theme = { ...theme, ...themeOverrides }
+          } catch {
+            console.warn(`[ghostty] failed to read named theme: ${parsed.theme}`)
+          }
+        }
+      }
+
+      const userOverrides = extractTerminalTheme(parsed)
+
+      theme = { ...theme, ...userOverrides }
+
+      if (parsed.font_family) { config.font_family = parsed.font_family }
+      if (parsed.cursor_style) { config.cursor_style = parsed.cursor_style }
+      if (typeof parsed.cursor_style_blink === 'boolean') { config.cursor_style_blink = parsed.cursor_style_blink }
+      if (typeof parsed.font_size === 'number') { config.font_size = parsed.font_size }
+      if (typeof parsed.scrollback_limit === 'number') { config.scrollback_limit = parsed.scrollback_limit }
+    } catch (err) {
+      console.warn('[ghostty] failed to read user config:', err)
+    }
+  }
+
+  context.globalState.update('activePreset', 'auto')
+  context.globalState.update('terminalTheme', theme)
+  context.globalState.update('terminalConfig', config)
+
+  api.settings.update('ghostty.terminalTheme', theme)
+  api.settings.update('ghostty.terminalConfig', config)
 }
 
 function applyPreset(api: AgentGridApi, context: ExtensionContext, presetId: string): { ok: boolean; preset?: string; error?: string } {
@@ -101,32 +164,9 @@ function applyPreset(api: AgentGridApi, context: ExtensionContext, presetId: str
 }
 
 function importGhosttyConfig(api: AgentGridApi, context: ExtensionContext): { ok: boolean; imported?: boolean; error?: string } {
-  const configPath = resolveGhosttyConfigPath()
+  loadRealGhosttyConfig(api, context)
 
-  if (!configPath || !fs.existsSync(configPath)) {
-    return { ok: false, error: 'Ghostty config not found at ~/.config/ghostty/config' }
-  }
-
-  try {
-    const raw = fs.readFileSync(configPath, 'utf-8')
-    const config = parseGhosttyConfig(raw)
-    const themeOverrides = extractTerminalTheme(config)
-
-    const basePreset = GHOSTTY_PRESETS[0]!
-
-    const mergedTheme: GhosttyTerminalTheme = { ...basePreset.terminalTheme, ...themeOverrides }
-
-    context.globalState.update('activePreset', 'imported')
-    context.globalState.update('terminalTheme', mergedTheme)
-    context.globalState.update('terminalConfig', config)
-
-    api.settings.update('ghostty.terminalTheme', mergedTheme)
-    api.settings.update('ghostty.terminalConfig', config)
-
-    return { ok: true, imported: true }
-  } catch (err) {
-    return { ok: false, error: (err as Error).message }
-  }
+  return { ok: true, imported: true }
 }
 
 function resolveGhosttyConfigPath(): string | null {
@@ -137,6 +177,30 @@ function resolveGhosttyConfigPath(): string | null {
   if (xdgPath && fs.existsSync(xdgPath)) { return xdgPath }
 
   if (fs.existsSync(homeConfig)) { return homeConfig }
+
+  return null
+}
+
+function resolveGhosttyThemeFile(): string | null {
+  const bundledPath = '/Applications/Ghostty.app/Contents/Resources/ghostty/themes/Ghostty Default Style Dark'
+
+  if (fs.existsSync(bundledPath)) { return bundledPath }
+
+  return null
+}
+
+function resolveNamedTheme(themeName: string): string | null {
+  const xdgConfig = process.env['XDG_CONFIG_HOME']
+  const userThemeDir = xdgConfig
+    ? path.join(xdgConfig, 'ghostty', 'themes')
+    : path.join(os.homedir(), '.config', 'ghostty', 'themes')
+  const userPath = path.join(userThemeDir, themeName)
+
+  if (fs.existsSync(userPath)) { return userPath }
+
+  const bundledPath = `/Applications/Ghostty.app/Contents/Resources/ghostty/themes/${themeName}`
+
+  if (fs.existsSync(bundledPath)) { return bundledPath }
 
   return null
 }
