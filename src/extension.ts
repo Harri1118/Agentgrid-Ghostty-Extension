@@ -3,7 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { parseGhosttyConfig, extractTerminalTheme } from './config-parser'
 import { GHOSTTY_PRESETS } from './presets'
-import type { GhosttyPreset, GhosttyTerminalTheme } from './types'
+import type { GhosttyPreset, GhosttyTerminalTheme, GhosttyTerminalConfig, GhosttyEngineResponse, GhosttyConfig } from './types'
 
 type ExtensionContext = {
   subscriptions: Array<{ dispose(): void }>
@@ -39,7 +39,7 @@ export function activate(context: ExtensionContext): void {
   const terminalEngine = api.terminalEngines.registerTerminalEngine({
     id: 'ghostty',
     label: 'Ghostty',
-    description: 'Ghostty-inspired terminal with custom themes and keybindings',
+    description: 'Ghostty terminal engine — loads your real Ghostty config',
   })
 
   context.subscriptions.push(terminalEngine)
@@ -51,7 +51,9 @@ export function activate(context: ExtensionContext): void {
   })
 
   const importConfigCmd = api.commands.registerCommand('ghostty.importConfig', () => {
-    return importGhosttyConfig(api, context)
+    loadRealGhosttyConfig(api, context)
+
+    return { ok: true, imported: true }
   })
 
   const listPresetsCmd = api.commands.registerCommand('ghostty.listPresets', () => {
@@ -62,8 +64,11 @@ export function activate(context: ExtensionContext): void {
     return context.globalState.get<string>('activePreset') ?? null
   })
 
-  const getTerminalThemeCmd = api.commands.registerCommand('ghostty.getTerminalTheme', () => {
-    return context.globalState.get<GhosttyTerminalTheme>('terminalTheme') ?? GHOSTTY_PRESETS[0]!.terminalTheme
+  const getTerminalThemeCmd = api.commands.registerCommand('ghostty.getTerminalTheme', (): GhosttyEngineResponse => {
+    const theme = context.globalState.get<GhosttyTerminalTheme>('terminalTheme') ?? GHOSTTY_PRESETS[0]!.terminalTheme
+    const config = context.globalState.get<GhosttyTerminalConfig>('terminalConfig') ?? {}
+
+    return { theme, config }
   })
 
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd)
@@ -80,7 +85,12 @@ export function deactivate(): void {
 function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): void {
   const basePreset = GHOSTTY_PRESETS[0]!
   let theme: GhosttyTerminalTheme = { ...basePreset.terminalTheme }
-  let config = { ...basePreset.config }
+  const config: GhosttyTerminalConfig = {
+    fontSize: basePreset.config.font_size,
+    cursorStyle: basePreset.config.cursor_style,
+    cursorBlink: basePreset.config.cursor_style_blink,
+    scrollback: basePreset.config.scrollback_limit,
+  }
 
   const ghosttyThemeFile = resolveGhosttyThemeFile()
 
@@ -88,14 +98,9 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     try {
       const raw = fs.readFileSync(ghosttyThemeFile, 'utf-8')
       const parsed = parseGhosttyConfig(raw)
-      const themeOverrides = extractTerminalTheme(parsed)
 
-      theme = { ...theme, ...themeOverrides }
-
-      if (parsed.cursor_style) { config.cursor_style = parsed.cursor_style }
-      if (typeof parsed.cursor_style_blink === 'boolean') { config.cursor_style_blink = parsed.cursor_style_blink }
-      if (typeof parsed.font_size === 'number') { config.font_size = parsed.font_size }
-      if (typeof parsed.scrollback_limit === 'number') { config.scrollback_limit = parsed.scrollback_limit }
+      theme = { ...theme, ...extractTerminalTheme(parsed) }
+      mergeConfigFields(config, parsed)
     } catch (err) {
       console.warn('[ghostty] failed to read default theme file:', err)
     }
@@ -115,24 +120,17 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
           try {
             const themeRaw = fs.readFileSync(namedThemePath, 'utf-8')
             const themeParsed = parseGhosttyConfig(themeRaw)
-            const themeOverrides = extractTerminalTheme(themeParsed)
 
-            theme = { ...theme, ...themeOverrides }
+            theme = { ...theme, ...extractTerminalTheme(themeParsed) }
+            mergeConfigFields(config, themeParsed)
           } catch {
             console.warn(`[ghostty] failed to read named theme: ${parsed.theme}`)
           }
         }
       }
 
-      const userOverrides = extractTerminalTheme(parsed)
-
-      theme = { ...theme, ...userOverrides }
-
-      if (parsed.font_family) { config.font_family = parsed.font_family }
-      if (parsed.cursor_style) { config.cursor_style = parsed.cursor_style }
-      if (typeof parsed.cursor_style_blink === 'boolean') { config.cursor_style_blink = parsed.cursor_style_blink }
-      if (typeof parsed.font_size === 'number') { config.font_size = parsed.font_size }
-      if (typeof parsed.scrollback_limit === 'number') { config.scrollback_limit = parsed.scrollback_limit }
+      theme = { ...theme, ...extractTerminalTheme(parsed) }
+      mergeConfigFields(config, parsed)
     } catch (err) {
       console.warn('[ghostty] failed to read user config:', err)
     }
@@ -146,6 +144,28 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
   api.settings.update('ghostty.terminalConfig', config)
 }
 
+function mergeConfigFields(config: GhosttyTerminalConfig, parsed: GhosttyConfig): void {
+  if (parsed.font_family) { config.fontFamily = parsed.font_family }
+  if (parsed.font_family_bold) { config.fontFamilyBold = parsed.font_family_bold }
+  if (parsed.font_family_italic) { config.fontFamilyItalic = parsed.font_family_italic }
+  if (parsed.font_family_bold_italic) { config.fontFamilyBoldItalic = parsed.font_family_bold_italic }
+  if (typeof parsed.font_size === 'number') { config.fontSize = parsed.font_size }
+  if (typeof parsed.font_thicken === 'boolean') { config.fontThicken = parsed.font_thicken }
+  if (parsed.cursor_style) { config.cursorStyle = parsed.cursor_style }
+  if (typeof parsed.cursor_style_blink === 'boolean') { config.cursorBlink = parsed.cursor_style_blink }
+  if (typeof parsed.cursor_opacity === 'number') { config.cursorOpacity = parsed.cursor_opacity }
+  if (typeof parsed.background_opacity === 'number') { config.backgroundOpacity = parsed.background_opacity }
+  if (typeof parsed.background_blur_radius === 'number') { config.backgroundBlurRadius = parsed.background_blur_radius }
+  if (typeof parsed.bold_is_bright === 'boolean') { config.boldIsBright = parsed.bold_is_bright }
+  if (typeof parsed.minimum_contrast === 'number') { config.minimumContrast = parsed.minimum_contrast }
+  if (typeof parsed.window_padding_x === 'number') { config.paddingX = parsed.window_padding_x }
+  if (typeof parsed.window_padding_y === 'number') { config.paddingY = parsed.window_padding_y }
+  if (typeof parsed.scrollback_limit === 'number') { config.scrollback = parsed.scrollback_limit }
+  if (typeof parsed.adjust_cell_width === 'number') { config.cellWidth = parsed.adjust_cell_width }
+  if (typeof parsed.adjust_cell_height === 'number') { config.cellHeight = parsed.adjust_cell_height }
+  if (typeof parsed.adjust_cursor_thickness === 'number') { config.cursorThickness = parsed.adjust_cursor_thickness }
+}
+
 function applyPreset(api: AgentGridApi, context: ExtensionContext, presetId: string): { ok: boolean; preset?: string; error?: string } {
   const preset = GHOSTTY_PRESETS.find((p) => p.id === presetId)
 
@@ -153,20 +173,22 @@ function applyPreset(api: AgentGridApi, context: ExtensionContext, presetId: str
     return { ok: false, error: `Unknown preset: ${presetId}` }
   }
 
+  const config: GhosttyTerminalConfig = {
+    fontSize: preset.config.font_size,
+    cursorStyle: preset.config.cursor_style,
+    cursorBlink: preset.config.cursor_style_blink,
+    scrollback: preset.config.scrollback_limit,
+    boldIsBright: preset.config.bold_is_bright,
+  }
+
   context.globalState.update('activePreset', preset.id)
   context.globalState.update('terminalTheme', preset.terminalTheme)
-  context.globalState.update('terminalConfig', preset.config)
+  context.globalState.update('terminalConfig', config)
 
   api.settings.update('ghostty.terminalTheme', preset.terminalTheme)
-  api.settings.update('ghostty.terminalConfig', preset.config)
+  api.settings.update('ghostty.terminalConfig', config)
 
   return { ok: true, preset: preset.id }
-}
-
-function importGhosttyConfig(api: AgentGridApi, context: ExtensionContext): { ok: boolean; imported?: boolean; error?: string } {
-  loadRealGhosttyConfig(api, context)
-
-  return { ok: true, imported: true }
 }
 
 function resolveGhosttyConfigPath(): string | null {

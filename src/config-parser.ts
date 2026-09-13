@@ -27,6 +27,8 @@ export function extractTerminalTheme(config: GhosttyConfig): Partial<GhosttyTerm
 
   if (config.background) { theme.background = config.background }
   if (config.foreground) { theme.foreground = config.foreground }
+  if (config.cursor_color) { theme.cursor = config.cursor_color }
+  if (config.cursor_text) { theme.cursorAccent = config.cursor_text }
   if (config.selection_background) { theme.selectionBackground = config.selection_background }
   if (config.selection_foreground) { theme.selectionForeground = config.selection_foreground }
 
@@ -52,8 +54,13 @@ export function extractTerminalTheme(config: GhosttyConfig): Partial<GhosttyTerm
 function applyConfigKey(config: GhosttyConfig, key: string, value: string): void {
   const stringKeys: Record<string, keyof GhosttyConfig> = {
     'font-family': 'font_family',
+    'font-family-bold': 'font_family_bold',
+    'font-family-italic': 'font_family_italic',
+    'font-family-bold-italic': 'font_family_bold_italic',
     'background': 'background',
     'foreground': 'foreground',
+    'cursor-color': 'cursor_color',
+    'cursor-text': 'cursor_text',
     'selection-background': 'selection_background',
     'selection-foreground': 'selection_foreground',
     'theme': 'theme',
@@ -61,10 +68,17 @@ function applyConfigKey(config: GhosttyConfig, key: string, value: string): void
 
   const numericKeys: Record<string, keyof GhosttyConfig> = {
     'font-size': 'font_size',
+    'background-opacity': 'background_opacity',
+    'background-blur-radius': 'background_blur_radius',
+    'cursor-opacity': 'cursor_opacity',
+    'minimum-contrast': 'minimum_contrast',
     'window-padding-x': 'window_padding_x',
     'window-padding-y': 'window_padding_y',
     'scrollback-limit': 'scrollback_limit',
     'unfocused-split-opacity': 'unfocused_split_opacity',
+    'adjust-cell-width': 'adjust_cell_width',
+    'adjust-cell-height': 'adjust_cell_height',
+    'adjust-cursor-thickness': 'adjust_cursor_thickness',
   }
 
   const booleanKeys: Record<string, keyof GhosttyConfig> = {
@@ -73,6 +87,9 @@ function applyConfigKey(config: GhosttyConfig, key: string, value: string): void
     'copy-on-select': 'copy_on_select',
     'confirm-close-surface': 'confirm_close_surface',
     'bold-is-bright': 'bold_is_bright',
+    'font-thicken': 'font_thicken',
+    'window-padding-balance': 'window_padding_balance',
+    'link-url': 'link_url',
   }
 
   if (stringKeys[key]) {

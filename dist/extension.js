@@ -65,6 +65,12 @@ function extractTerminalTheme(config) {
   if (config.foreground) {
     theme.foreground = config.foreground;
   }
+  if (config.cursor_color) {
+    theme.cursor = config.cursor_color;
+  }
+  if (config.cursor_text) {
+    theme.cursorAccent = config.cursor_text;
+  }
   if (config.selection_background) {
     theme.selectionBackground = config.selection_background;
   }
@@ -102,25 +108,40 @@ function extractTerminalTheme(config) {
 function applyConfigKey(config, key, value) {
   const stringKeys = {
     "font-family": "font_family",
+    "font-family-bold": "font_family_bold",
+    "font-family-italic": "font_family_italic",
+    "font-family-bold-italic": "font_family_bold_italic",
     "background": "background",
     "foreground": "foreground",
+    "cursor-color": "cursor_color",
+    "cursor-text": "cursor_text",
     "selection-background": "selection_background",
     "selection-foreground": "selection_foreground",
     "theme": "theme"
   };
   const numericKeys = {
     "font-size": "font_size",
+    "background-opacity": "background_opacity",
+    "background-blur-radius": "background_blur_radius",
+    "cursor-opacity": "cursor_opacity",
+    "minimum-contrast": "minimum_contrast",
     "window-padding-x": "window_padding_x",
     "window-padding-y": "window_padding_y",
     "scrollback-limit": "scrollback_limit",
-    "unfocused-split-opacity": "unfocused_split_opacity"
+    "unfocused-split-opacity": "unfocused_split_opacity",
+    "adjust-cell-width": "adjust_cell_width",
+    "adjust-cell-height": "adjust_cell_height",
+    "adjust-cursor-thickness": "adjust_cursor_thickness"
   };
   const booleanKeys = {
     "cursor-style-blink": "cursor_style_blink",
     "mouse-hide-while-typing": "mouse_hide_while_typing",
     "copy-on-select": "copy_on_select",
     "confirm-close-surface": "confirm_close_surface",
-    "bold-is-bright": "bold_is_bright"
+    "bold-is-bright": "bold_is_bright",
+    "font-thicken": "font_thicken",
+    "window-padding-balance": "window_padding_balance",
+    "link-url": "link_url"
   };
   if (stringKeys[key]) {
     ;
@@ -395,7 +416,7 @@ function activate(context) {
   const terminalEngine = api.terminalEngines.registerTerminalEngine({
     id: "ghostty",
     label: "Ghostty",
-    description: "Ghostty-inspired terminal with custom themes and keybindings"
+    description: "Ghostty terminal engine \u2014 loads your real Ghostty config"
   });
   context.subscriptions.push(terminalEngine);
   const applyThemeCmd = api.commands.registerCommand("ghostty.applyTerminalTheme", (...args) => {
@@ -403,7 +424,8 @@ function activate(context) {
     return applyPreset(api, context, presetId);
   });
   const importConfigCmd = api.commands.registerCommand("ghostty.importConfig", () => {
-    return importGhosttyConfig(api, context);
+    loadRealGhosttyConfig(api, context);
+    return { ok: true, imported: true };
   });
   const listPresetsCmd = api.commands.registerCommand("ghostty.listPresets", () => {
     return GHOSTTY_PRESETS.map((p) => ({ id: p.id, label: p.label }));
@@ -412,7 +434,9 @@ function activate(context) {
     return context.globalState.get("activePreset") ?? null;
   });
   const getTerminalThemeCmd = api.commands.registerCommand("ghostty.getTerminalTheme", () => {
-    return context.globalState.get("terminalTheme") ?? GHOSTTY_PRESETS[0].terminalTheme;
+    const theme = context.globalState.get("terminalTheme") ?? GHOSTTY_PRESETS[0].terminalTheme;
+    const config = context.globalState.get("terminalConfig") ?? {};
+    return { theme, config };
   });
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd);
   loadRealGhosttyConfig(api, context);
@@ -424,26 +448,19 @@ function deactivate() {
 function loadRealGhosttyConfig(api, context) {
   const basePreset = GHOSTTY_PRESETS[0];
   let theme = { ...basePreset.terminalTheme };
-  let config = { ...basePreset.config };
+  const config = {
+    fontSize: basePreset.config.font_size,
+    cursorStyle: basePreset.config.cursor_style,
+    cursorBlink: basePreset.config.cursor_style_blink,
+    scrollback: basePreset.config.scrollback_limit
+  };
   const ghosttyThemeFile = resolveGhosttyThemeFile();
   if (ghosttyThemeFile) {
     try {
       const raw = import_node_fs.default.readFileSync(ghosttyThemeFile, "utf-8");
       const parsed = parseGhosttyConfig(raw);
-      const themeOverrides = extractTerminalTheme(parsed);
-      theme = { ...theme, ...themeOverrides };
-      if (parsed.cursor_style) {
-        config.cursor_style = parsed.cursor_style;
-      }
-      if (typeof parsed.cursor_style_blink === "boolean") {
-        config.cursor_style_blink = parsed.cursor_style_blink;
-      }
-      if (typeof parsed.font_size === "number") {
-        config.font_size = parsed.font_size;
-      }
-      if (typeof parsed.scrollback_limit === "number") {
-        config.scrollback_limit = parsed.scrollback_limit;
-      }
+      theme = { ...theme, ...extractTerminalTheme(parsed) };
+      mergeConfigFields(config, parsed);
     } catch (err) {
       console.warn("[ghostty] failed to read default theme file:", err);
     }
@@ -459,30 +476,15 @@ function loadRealGhosttyConfig(api, context) {
           try {
             const themeRaw = import_node_fs.default.readFileSync(namedThemePath, "utf-8");
             const themeParsed = parseGhosttyConfig(themeRaw);
-            const themeOverrides = extractTerminalTheme(themeParsed);
-            theme = { ...theme, ...themeOverrides };
+            theme = { ...theme, ...extractTerminalTheme(themeParsed) };
+            mergeConfigFields(config, themeParsed);
           } catch {
             console.warn(`[ghostty] failed to read named theme: ${parsed.theme}`);
           }
         }
       }
-      const userOverrides = extractTerminalTheme(parsed);
-      theme = { ...theme, ...userOverrides };
-      if (parsed.font_family) {
-        config.font_family = parsed.font_family;
-      }
-      if (parsed.cursor_style) {
-        config.cursor_style = parsed.cursor_style;
-      }
-      if (typeof parsed.cursor_style_blink === "boolean") {
-        config.cursor_style_blink = parsed.cursor_style_blink;
-      }
-      if (typeof parsed.font_size === "number") {
-        config.font_size = parsed.font_size;
-      }
-      if (typeof parsed.scrollback_limit === "number") {
-        config.scrollback_limit = parsed.scrollback_limit;
-      }
+      theme = { ...theme, ...extractTerminalTheme(parsed) };
+      mergeConfigFields(config, parsed);
     } catch (err) {
       console.warn("[ghostty] failed to read user config:", err);
     }
@@ -493,21 +495,83 @@ function loadRealGhosttyConfig(api, context) {
   api.settings.update("ghostty.terminalTheme", theme);
   api.settings.update("ghostty.terminalConfig", config);
 }
+function mergeConfigFields(config, parsed) {
+  if (parsed.font_family) {
+    config.fontFamily = parsed.font_family;
+  }
+  if (parsed.font_family_bold) {
+    config.fontFamilyBold = parsed.font_family_bold;
+  }
+  if (parsed.font_family_italic) {
+    config.fontFamilyItalic = parsed.font_family_italic;
+  }
+  if (parsed.font_family_bold_italic) {
+    config.fontFamilyBoldItalic = parsed.font_family_bold_italic;
+  }
+  if (typeof parsed.font_size === "number") {
+    config.fontSize = parsed.font_size;
+  }
+  if (typeof parsed.font_thicken === "boolean") {
+    config.fontThicken = parsed.font_thicken;
+  }
+  if (parsed.cursor_style) {
+    config.cursorStyle = parsed.cursor_style;
+  }
+  if (typeof parsed.cursor_style_blink === "boolean") {
+    config.cursorBlink = parsed.cursor_style_blink;
+  }
+  if (typeof parsed.cursor_opacity === "number") {
+    config.cursorOpacity = parsed.cursor_opacity;
+  }
+  if (typeof parsed.background_opacity === "number") {
+    config.backgroundOpacity = parsed.background_opacity;
+  }
+  if (typeof parsed.background_blur_radius === "number") {
+    config.backgroundBlurRadius = parsed.background_blur_radius;
+  }
+  if (typeof parsed.bold_is_bright === "boolean") {
+    config.boldIsBright = parsed.bold_is_bright;
+  }
+  if (typeof parsed.minimum_contrast === "number") {
+    config.minimumContrast = parsed.minimum_contrast;
+  }
+  if (typeof parsed.window_padding_x === "number") {
+    config.paddingX = parsed.window_padding_x;
+  }
+  if (typeof parsed.window_padding_y === "number") {
+    config.paddingY = parsed.window_padding_y;
+  }
+  if (typeof parsed.scrollback_limit === "number") {
+    config.scrollback = parsed.scrollback_limit;
+  }
+  if (typeof parsed.adjust_cell_width === "number") {
+    config.cellWidth = parsed.adjust_cell_width;
+  }
+  if (typeof parsed.adjust_cell_height === "number") {
+    config.cellHeight = parsed.adjust_cell_height;
+  }
+  if (typeof parsed.adjust_cursor_thickness === "number") {
+    config.cursorThickness = parsed.adjust_cursor_thickness;
+  }
+}
 function applyPreset(api, context, presetId) {
   const preset = GHOSTTY_PRESETS.find((p) => p.id === presetId);
   if (!preset) {
     return { ok: false, error: `Unknown preset: ${presetId}` };
   }
+  const config = {
+    fontSize: preset.config.font_size,
+    cursorStyle: preset.config.cursor_style,
+    cursorBlink: preset.config.cursor_style_blink,
+    scrollback: preset.config.scrollback_limit,
+    boldIsBright: preset.config.bold_is_bright
+  };
   context.globalState.update("activePreset", preset.id);
   context.globalState.update("terminalTheme", preset.terminalTheme);
-  context.globalState.update("terminalConfig", preset.config);
+  context.globalState.update("terminalConfig", config);
   api.settings.update("ghostty.terminalTheme", preset.terminalTheme);
-  api.settings.update("ghostty.terminalConfig", preset.config);
+  api.settings.update("ghostty.terminalConfig", config);
   return { ok: true, preset: preset.id };
-}
-function importGhosttyConfig(api, context) {
-  loadRealGhosttyConfig(api, context);
-  return { ok: true, imported: true };
 }
 function resolveGhosttyConfigPath() {
   const xdgConfig = process.env["XDG_CONFIG_HOME"];
