@@ -392,6 +392,12 @@ function activate(context) {
   if (!api) {
     return;
   }
+  const terminalEngine = api.terminalEngines.registerTerminalEngine({
+    id: "ghostty",
+    label: "Ghostty",
+    description: "Ghostty-inspired terminal with custom themes and keybindings"
+  });
+  context.subscriptions.push(terminalEngine);
   const applyThemeCmd = api.commands.registerCommand("ghostty.applyTerminalTheme", (...args) => {
     const presetId = args[0] || "ghostty-default-dark";
     return applyPreset(api, context, presetId);

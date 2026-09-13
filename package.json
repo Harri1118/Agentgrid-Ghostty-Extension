@@ -76,6 +76,13 @@
         }
       }
     ],
+    "terminalEngines": [
+      {
+        "id": "ghostty",
+        "label": "Ghostty",
+        "description": "Ghostty-inspired terminal with custom themes and keybindings"
+      }
+    ],
     "commands": [
       {
         "command": "ghostty.applyTerminalTheme",

@@ -22,6 +22,9 @@ type AgentGridApi = {
     registerCommand(id: string, handler: (...args: unknown[]) => unknown): { dispose(): void }
     executeCommand(id: string, ...args: unknown[]): Promise<unknown>
   }
+  terminalEngines: {
+    registerTerminalEngine(engine: { id: string; label: string; description?: string }): { dispose(): void }
+  }
   settings: {
     get(key: string): unknown
     update(key: string, value: unknown): void
@@ -32,6 +35,14 @@ export function activate(context: ExtensionContext): void {
   const api = (globalThis as Record<string, unknown>)['__agentgrid_api'] as AgentGridApi | undefined
 
   if (!api) { return }
+
+  const terminalEngine = api.terminalEngines.registerTerminalEngine({
+    id: 'ghostty',
+    label: 'Ghostty',
+    description: 'Ghostty-inspired terminal with custom themes and keybindings',
+  })
+
+  context.subscriptions.push(terminalEngine)
 
   const applyThemeCmd = api.commands.registerCommand('ghostty.applyTerminalTheme', (...args: unknown[]) => {
     const presetId = (args[0] as string) || 'ghostty-default-dark'
