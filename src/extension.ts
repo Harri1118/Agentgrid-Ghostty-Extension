@@ -63,7 +63,7 @@ export function activate(context: ExtensionContext): void {
   })
 
   const getTerminalThemeCmd = api.commands.registerCommand('ghostty.getTerminalTheme', () => {
-    return context.globalState.get<GhosttyTerminalTheme>('terminalTheme') ?? null
+    return context.globalState.get<GhosttyTerminalTheme>('terminalTheme') ?? GHOSTTY_PRESETS[0]!.terminalTheme
   })
 
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd)
@@ -72,6 +72,8 @@ export function activate(context: ExtensionContext): void {
 
   if (savedPreset) {
     applyPreset(api, context, savedPreset)
+  } else {
+    applyPreset(api, context, 'ghostty-default-dark')
   }
 
   console.log('[ghostty] extension activated')

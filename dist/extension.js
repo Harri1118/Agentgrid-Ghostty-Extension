@@ -412,12 +412,14 @@ function activate(context) {
     return context.globalState.get("activePreset") ?? null;
   });
   const getTerminalThemeCmd = api.commands.registerCommand("ghostty.getTerminalTheme", () => {
-    return context.globalState.get("terminalTheme") ?? null;
+    return context.globalState.get("terminalTheme") ?? GHOSTTY_PRESETS[0].terminalTheme;
   });
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd);
   const savedPreset = context.globalState.get("activePreset");
   if (savedPreset) {
     applyPreset(api, context, savedPreset);
+  } else {
+    applyPreset(api, context, "ghostty-default-dark");
   }
   console.log("[ghostty] extension activated");
 }
