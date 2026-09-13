@@ -72,6 +72,7 @@ export type GhosttyTerminalConfig = {
   cursorOpacity?: number
   backgroundOpacity?: number
   backgroundBlurRadius?: number
+  backgroundImageDataUrl?: string
   boldIsBright?: boolean
   minimumContrast?: number
   paddingX?: number

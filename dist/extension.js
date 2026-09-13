@@ -489,6 +489,13 @@ function loadRealGhosttyConfig(api, context) {
       console.warn("[ghostty] failed to read user config:", err);
     }
   }
+  const bgImage = resolveBackgroundImage();
+  if (bgImage) {
+    config.backgroundImageDataUrl = bgImage;
+    if (config.backgroundOpacity === void 0) {
+      config.backgroundOpacity = 0.85;
+    }
+  }
   context.globalState.update("activePreset", "auto");
   context.globalState.update("terminalTheme", theme);
   context.globalState.update("terminalConfig", config);
@@ -589,6 +596,38 @@ function resolveGhosttyThemeFile() {
   const bundledPath = "/Applications/Ghostty.app/Contents/Resources/ghostty/themes/Ghostty Default Style Dark";
   if (import_node_fs.default.existsSync(bundledPath)) {
     return bundledPath;
+  }
+  return null;
+}
+function resolveBackgroundImage() {
+  const xdgConfig = process.env["XDG_CONFIG_HOME"];
+  const configDir = xdgConfig ? import_node_path.default.join(xdgConfig, "ghostty") : import_node_path.default.join(import_node_os.default.homedir(), ".config", "ghostty");
+  const imageExtensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+  try {
+    const files = import_node_fs.default.readdirSync(configDir);
+    for (const file of files) {
+      const ext = import_node_path.default.extname(file).toLowerCase();
+      if (!imageExtensions.includes(ext)) {
+        continue;
+      }
+      const filePath = import_node_path.default.join(configDir, file);
+      const stat = import_node_fs.default.statSync(filePath);
+      if (!stat.isFile() || stat.size > 10 * 1024 * 1024) {
+        continue;
+      }
+      const data = import_node_fs.default.readFileSync(filePath);
+      const mimeTypes = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif"
+      };
+      const mime = mimeTypes[ext] ?? "image/png";
+      return `data:${mime};base64,${data.toString("base64")}`;
+    }
+  } catch {
+    console.warn("[ghostty] failed to scan config dir for background images");
   }
   return null;
 }

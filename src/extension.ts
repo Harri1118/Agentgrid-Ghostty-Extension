@@ -136,6 +136,16 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     }
   }
 
+  const bgImage = resolveBackgroundImage()
+
+  if (bgImage) {
+    config.backgroundImageDataUrl = bgImage
+
+    if (config.backgroundOpacity === undefined) {
+      config.backgroundOpacity = 0.85
+    }
+  }
+
   context.globalState.update('activePreset', 'auto')
   context.globalState.update('terminalTheme', theme)
   context.globalState.update('terminalConfig', config)
@@ -207,6 +217,45 @@ function resolveGhosttyThemeFile(): string | null {
   const bundledPath = '/Applications/Ghostty.app/Contents/Resources/ghostty/themes/Ghostty Default Style Dark'
 
   if (fs.existsSync(bundledPath)) { return bundledPath }
+
+  return null
+}
+
+function resolveBackgroundImage(): string | null {
+  const xdgConfig = process.env['XDG_CONFIG_HOME']
+  const configDir = xdgConfig
+    ? path.join(xdgConfig, 'ghostty')
+    : path.join(os.homedir(), '.config', 'ghostty')
+  const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
+
+  try {
+    const files = fs.readdirSync(configDir)
+
+    for (const file of files) {
+      const ext = path.extname(file).toLowerCase()
+
+      if (!imageExtensions.includes(ext)) { continue }
+
+      const filePath = path.join(configDir, file)
+      const stat = fs.statSync(filePath)
+
+      if (!stat.isFile() || stat.size > 10 * 1024 * 1024) { continue }
+
+      const data = fs.readFileSync(filePath)
+      const mimeTypes: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif',
+      }
+      const mime = mimeTypes[ext] ?? 'image/png'
+
+      return `data:${mime};base64,${data.toString('base64')}`
+    }
+  } catch {
+    console.warn('[ghostty] failed to scan config dir for background images')
+  }
 
   return null
 }
