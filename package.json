@@ -90,7 +90,7 @@
     ]
   },
   "scripts": {
-    "build": "tsc && node build-renderer.mjs",
+    "build": "node build-renderer.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
