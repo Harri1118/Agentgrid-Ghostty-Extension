@@ -1,0 +1,102 @@
+{
+  "name": "agentgrid-ghostty",
+  "displayName": "Ghostty Terminal",
+  "version": "0.1.0",
+  "description": "Ghostty-inspired terminal themes, keybindings, and shell integration for AgentGrid terminals.",
+  "publisher": "agentgrid",
+  "main": "dist/extension.js",
+  "renderer": "dist/renderer.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agent-grid/agentgrid-ghostty-extension"
+  },
+  "categories": [
+    "Themes",
+    "Terminal"
+  ],
+  "engines": {
+    "agentgrid": ">=2.8.0"
+  },
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "id": "ghostty-dark",
+        "label": "Ghostty Dark",
+        "description": "Dark theme inspired by Ghostty's default palette",
+        "swatch": {
+          "bg": "#0b0e14",
+          "primary": "#59c2ff",
+          "text": "#bfbdb6"
+        },
+        "tokens": {
+          "--bg-app": "#0b0e14",
+          "--bg-card": "#11141a",
+          "--bg-surface": "#161a22",
+          "--bg-hover": "#1c2029",
+          "--text-primary": "#bfbdb6",
+          "--text-secondary": "#565b66",
+          "--text-muted": "#3d424d",
+          "--border-default": "#1c2029",
+          "--border-strong": "#2d323c",
+          "--accent-blue": "#59c2ff",
+          "--accent-green": "#7fd962",
+          "--accent-red": "#d95757",
+          "--accent-yellow": "#e6b450",
+          "--accent-purple": "#d2a6ff"
+        }
+      },
+      {
+        "id": "ghostty-light",
+        "label": "Ghostty Light",
+        "description": "Light theme inspired by Ghostty's light palette",
+        "swatch": {
+          "bg": "#f8f8f2",
+          "primary": "#0969da",
+          "text": "#24292f"
+        },
+        "tokens": {
+          "--bg-app": "#f8f8f2",
+          "--bg-card": "#ffffff",
+          "--bg-surface": "#f0f0ea",
+          "--bg-hover": "#e8e8e2",
+          "--text-primary": "#24292f",
+          "--text-secondary": "#57606a",
+          "--text-muted": "#8c959f",
+          "--border-default": "#d8dee4",
+          "--border-strong": "#bcc3cd",
+          "--accent-blue": "#0969da",
+          "--accent-green": "#116329",
+          "--accent-red": "#cf222e",
+          "--accent-yellow": "#9a6700",
+          "--accent-purple": "#8250df"
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "ghostty.applyTerminalTheme",
+        "title": "Apply Ghostty Terminal Theme",
+        "category": "Ghostty"
+      },
+      {
+        "command": "ghostty.importConfig",
+        "title": "Import Ghostty Config",
+        "category": "Ghostty"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc && node build-renderer.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.9.0"
+  }
+}
