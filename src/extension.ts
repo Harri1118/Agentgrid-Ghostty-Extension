@@ -1,40 +1,73 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import os from 'node:os'
 import { parseGhosttyConfig, extractTerminalTheme } from './config-parser'
 import { GHOSTTY_PRESETS } from './presets'
-import type { GhosttyPreset, GhosttyTerminalTheme, GhosttyTerminalConfig, GhosttyEngineResponse, GhosttyConfig } from './types'
+import type { GhosttyTerminalTheme, GhosttyTerminalConfig, GhosttyEngineResponse, GhosttyConfig } from './types'
 
-type ExtensionContext = {
-  subscriptions: Array<{ dispose(): void }>
-  extensionPath: string
-  extensionId: string
-  globalState: {
-    get<T>(key: string, defaultValue?: T): T | undefined
-    update(key: string, value: unknown): void
-    keys(): readonly string[]
-  }
-  storagePath: string
+type Disposable = { dispose(): void }
+
+type Memento = {
+  get<T>(key: string, defaultValue?: T): T | undefined
+  update(key: string, value: unknown): void
+  keys(): readonly string[]
+}
+
+type FileStat = {
+  size: number
+  isFile: boolean
+  isDirectory: boolean
+  isSymbolicLink: boolean
+  mtimeMs: number
+}
+
+type FsNamespace = {
+  readFile(filePath: string, encoding?: string): string
+  readFileBase64(filePath: string): string
+  exists(filePath: string): boolean
+  readdir(dirPath: string): string[]
+  stat(filePath: string): FileStat
+}
+
+type PathNamespace = {
+  join(...parts: string[]): string
+  dirname(p: string): string
+  basename(p: string, ext?: string): string
+  extname(p: string): string
+  resolve(...parts: string[]): string
+}
+
+type EnvNamespace = {
+  homedir(): string
+  get(name: string): string | undefined
+  platform(): string
 }
 
 type AgentGridApi = {
   commands: {
-    registerCommand(id: string, handler: (...args: unknown[]) => unknown): { dispose(): void }
-    executeCommand(id: string, ...args: unknown[]): Promise<unknown>
+    registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable
   }
   terminalEngines: {
-    registerTerminalEngine(engine: { id: string; label: string; description?: string }): { dispose(): void }
+    registerTerminalEngine(engine: { id: string; label: string; description?: string }): Disposable
   }
   settings: {
     get(key: string): unknown
     update(key: string, value: unknown): void
   }
+  fs: FsNamespace
+  path: PathNamespace
+  env: EnvNamespace
+}
+
+type ExtensionContext = {
+  subscriptions: Disposable[]
+  extensionPath: string
+  extensionId: string
+  globalState: Memento
+  workspaceState: Memento
+  storagePath: string
+  agentgrid: AgentGridApi
 }
 
 export function activate(context: ExtensionContext): void {
-  const api = (globalThis as Record<string, unknown>)['__agentgrid_api'] as AgentGridApi | undefined
-
-  if (!api) { return }
+  const api = context.agentgrid
 
   const terminalEngine = api.terminalEngines.registerTerminalEngine({
     id: 'ghostty',
@@ -83,6 +116,7 @@ export function deactivate(): void {
 }
 
 function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): void {
+  const { fs, path, env } = api
   const basePreset = GHOSTTY_PRESETS[0]!
   let theme: GhosttyTerminalTheme = { ...basePreset.terminalTheme }
   const config: GhosttyTerminalConfig = {
@@ -92,11 +126,11 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     scrollback: basePreset.config.scrollback_limit,
   }
 
-  const ghosttyThemeFile = resolveGhosttyThemeFile()
+  const ghosttyThemeFile = resolveGhosttyThemeFile(fs)
 
   if (ghosttyThemeFile) {
     try {
-      const raw = fs.readFileSync(ghosttyThemeFile, 'utf-8')
+      const raw = fs.readFile(ghosttyThemeFile)
       const parsed = parseGhosttyConfig(raw)
 
       theme = { ...theme, ...extractTerminalTheme(parsed) }
@@ -106,19 +140,19 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     }
   }
 
-  const configPath = resolveGhosttyConfigPath()
+  const configPath = resolveGhosttyConfigPath(fs, path, env)
 
-  if (configPath && fs.existsSync(configPath)) {
+  if (configPath && fs.exists(configPath)) {
     try {
-      const raw = fs.readFileSync(configPath, 'utf-8')
+      const raw = fs.readFile(configPath)
       const parsed = parseGhosttyConfig(raw)
 
       if (parsed.theme) {
-        const namedThemePath = resolveNamedTheme(parsed.theme)
+        const namedThemePath = resolveNamedTheme(parsed.theme, fs, path, env)
 
         if (namedThemePath) {
           try {
-            const themeRaw = fs.readFileSync(namedThemePath, 'utf-8')
+            const themeRaw = fs.readFile(namedThemePath)
             const themeParsed = parseGhosttyConfig(themeRaw)
 
             theme = { ...theme, ...extractTerminalTheme(themeParsed) }
@@ -136,7 +170,7 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     }
   }
 
-  const bgImage = resolveBackgroundImage()
+  const bgImage = resolveBackgroundImage(fs, path, env)
 
   if (bgImage) {
     config.backgroundImageDataUrl = bgImage
@@ -201,35 +235,35 @@ function applyPreset(api: AgentGridApi, context: ExtensionContext, presetId: str
   return { ok: true, preset: preset.id }
 }
 
-function resolveGhosttyConfigPath(): string | null {
-  const xdgConfig = process.env['XDG_CONFIG_HOME']
-  const homeConfig = path.join(os.homedir(), '.config', 'ghostty', 'config')
+function resolveGhosttyConfigPath(fs: FsNamespace, path: PathNamespace, env: EnvNamespace): string | null {
+  const xdgConfig = env.get('XDG_CONFIG_HOME')
+  const homeConfig = path.join(env.homedir(), '.config', 'ghostty', 'config')
   const xdgPath = xdgConfig ? path.join(xdgConfig, 'ghostty', 'config') : null
 
-  if (xdgPath && fs.existsSync(xdgPath)) { return xdgPath }
+  if (xdgPath && fs.exists(xdgPath)) { return xdgPath }
 
-  if (fs.existsSync(homeConfig)) { return homeConfig }
+  if (fs.exists(homeConfig)) { return homeConfig }
 
   return null
 }
 
-function resolveGhosttyThemeFile(): string | null {
+function resolveGhosttyThemeFile(fs: FsNamespace): string | null {
   const bundledPath = '/Applications/Ghostty.app/Contents/Resources/ghostty/themes/Ghostty Default Style Dark'
 
-  if (fs.existsSync(bundledPath)) { return bundledPath }
+  if (fs.exists(bundledPath)) { return bundledPath }
 
   return null
 }
 
-function resolveBackgroundImage(): string | null {
-  const xdgConfig = process.env['XDG_CONFIG_HOME']
+function resolveBackgroundImage(fs: FsNamespace, path: PathNamespace, env: EnvNamespace): string | null {
+  const xdgConfig = env.get('XDG_CONFIG_HOME')
   const configDir = xdgConfig
     ? path.join(xdgConfig, 'ghostty')
-    : path.join(os.homedir(), '.config', 'ghostty')
+    : path.join(env.homedir(), '.config', 'ghostty')
   const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 
   try {
-    const files = fs.readdirSync(configDir)
+    const files = fs.readdir(configDir)
 
     for (const file of files) {
       const ext = path.extname(file).toLowerCase()
@@ -237,11 +271,11 @@ function resolveBackgroundImage(): string | null {
       if (!imageExtensions.includes(ext)) { continue }
 
       const filePath = path.join(configDir, file)
-      const stat = fs.statSync(filePath)
+      const stat = fs.stat(filePath)
 
-      if (!stat.isFile() || stat.size > 10 * 1024 * 1024) { continue }
+      if (!stat.isFile || stat.size > 10 * 1024 * 1024) { continue }
 
-      const data = fs.readFileSync(filePath)
+      const data = fs.readFileBase64(filePath)
       const mimeTypes: Record<string, string> = {
         '.png': 'image/png',
         '.jpg': 'image/jpeg',
@@ -251,7 +285,7 @@ function resolveBackgroundImage(): string | null {
       }
       const mime = mimeTypes[ext] ?? 'image/png'
 
-      return `data:${mime};base64,${data.toString('base64')}`
+      return `data:${mime};base64,${data}`
     }
   } catch {
     console.warn('[ghostty] failed to scan config dir for background images')
@@ -260,18 +294,18 @@ function resolveBackgroundImage(): string | null {
   return null
 }
 
-function resolveNamedTheme(themeName: string): string | null {
-  const xdgConfig = process.env['XDG_CONFIG_HOME']
+function resolveNamedTheme(themeName: string, fs: FsNamespace, path: PathNamespace, env: EnvNamespace): string | null {
+  const xdgConfig = env.get('XDG_CONFIG_HOME')
   const userThemeDir = xdgConfig
     ? path.join(xdgConfig, 'ghostty', 'themes')
-    : path.join(os.homedir(), '.config', 'ghostty', 'themes')
+    : path.join(env.homedir(), '.config', 'ghostty', 'themes')
   const userPath = path.join(userThemeDir, themeName)
 
-  if (fs.existsSync(userPath)) { return userPath }
+  if (fs.exists(userPath)) { return userPath }
 
   const bundledPath = `/Applications/Ghostty.app/Contents/Resources/ghostty/themes/${themeName}`
 
-  if (fs.existsSync(bundledPath)) { return bundledPath }
+  if (fs.exists(bundledPath)) { return bundledPath }
 
   return null
 }

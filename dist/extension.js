@@ -1,9 +1,7 @@
 "use strict";
-var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -17,14 +15,6 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/extension.ts
@@ -34,9 +24,6 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var import_node_fs = __toESM(require("node:fs"));
-var import_node_path = __toESM(require("node:path"));
-var import_node_os = __toESM(require("node:os"));
 
 // src/config-parser.ts
 function parseGhosttyConfig(raw) {
@@ -409,10 +396,7 @@ var GHOSTTY_PRESETS = [
 
 // src/extension.ts
 function activate(context) {
-  const api = globalThis["__agentgrid_api"];
-  if (!api) {
-    return;
-  }
+  const api = context.agentgrid;
   const terminalEngine = api.terminalEngines.registerTerminalEngine({
     id: "ghostty",
     label: "Ghostty",
@@ -446,6 +430,7 @@ function deactivate() {
   console.log("[ghostty] extension deactivated");
 }
 function loadRealGhosttyConfig(api, context) {
+  const { fs, path, env } = api;
   const basePreset = GHOSTTY_PRESETS[0];
   let theme = { ...basePreset.terminalTheme };
   const config = {
@@ -454,10 +439,10 @@ function loadRealGhosttyConfig(api, context) {
     cursorBlink: basePreset.config.cursor_style_blink,
     scrollback: basePreset.config.scrollback_limit
   };
-  const ghosttyThemeFile = resolveGhosttyThemeFile();
+  const ghosttyThemeFile = resolveGhosttyThemeFile(fs);
   if (ghosttyThemeFile) {
     try {
-      const raw = import_node_fs.default.readFileSync(ghosttyThemeFile, "utf-8");
+      const raw = fs.readFile(ghosttyThemeFile);
       const parsed = parseGhosttyConfig(raw);
       theme = { ...theme, ...extractTerminalTheme(parsed) };
       mergeConfigFields(config, parsed);
@@ -465,16 +450,16 @@ function loadRealGhosttyConfig(api, context) {
       console.warn("[ghostty] failed to read default theme file:", err);
     }
   }
-  const configPath = resolveGhosttyConfigPath();
-  if (configPath && import_node_fs.default.existsSync(configPath)) {
+  const configPath = resolveGhosttyConfigPath(fs, path, env);
+  if (configPath && fs.exists(configPath)) {
     try {
-      const raw = import_node_fs.default.readFileSync(configPath, "utf-8");
+      const raw = fs.readFile(configPath);
       const parsed = parseGhosttyConfig(raw);
       if (parsed.theme) {
-        const namedThemePath = resolveNamedTheme(parsed.theme);
+        const namedThemePath = resolveNamedTheme(parsed.theme, fs, path, env);
         if (namedThemePath) {
           try {
-            const themeRaw = import_node_fs.default.readFileSync(namedThemePath, "utf-8");
+            const themeRaw = fs.readFile(namedThemePath);
             const themeParsed = parseGhosttyConfig(themeRaw);
             theme = { ...theme, ...extractTerminalTheme(themeParsed) };
             mergeConfigFields(config, themeParsed);
@@ -489,7 +474,7 @@ function loadRealGhosttyConfig(api, context) {
       console.warn("[ghostty] failed to read user config:", err);
     }
   }
-  const bgImage = resolveBackgroundImage();
+  const bgImage = resolveBackgroundImage(fs, path, env);
   if (bgImage) {
     config.backgroundImageDataUrl = bgImage;
     if (config.backgroundOpacity === void 0) {
@@ -580,42 +565,42 @@ function applyPreset(api, context, presetId) {
   api.settings.update("ghostty.terminalConfig", config);
   return { ok: true, preset: preset.id };
 }
-function resolveGhosttyConfigPath() {
-  const xdgConfig = process.env["XDG_CONFIG_HOME"];
-  const homeConfig = import_node_path.default.join(import_node_os.default.homedir(), ".config", "ghostty", "config");
-  const xdgPath = xdgConfig ? import_node_path.default.join(xdgConfig, "ghostty", "config") : null;
-  if (xdgPath && import_node_fs.default.existsSync(xdgPath)) {
+function resolveGhosttyConfigPath(fs, path, env) {
+  const xdgConfig = env.get("XDG_CONFIG_HOME");
+  const homeConfig = path.join(env.homedir(), ".config", "ghostty", "config");
+  const xdgPath = xdgConfig ? path.join(xdgConfig, "ghostty", "config") : null;
+  if (xdgPath && fs.exists(xdgPath)) {
     return xdgPath;
   }
-  if (import_node_fs.default.existsSync(homeConfig)) {
+  if (fs.exists(homeConfig)) {
     return homeConfig;
   }
   return null;
 }
-function resolveGhosttyThemeFile() {
+function resolveGhosttyThemeFile(fs) {
   const bundledPath = "/Applications/Ghostty.app/Contents/Resources/ghostty/themes/Ghostty Default Style Dark";
-  if (import_node_fs.default.existsSync(bundledPath)) {
+  if (fs.exists(bundledPath)) {
     return bundledPath;
   }
   return null;
 }
-function resolveBackgroundImage() {
-  const xdgConfig = process.env["XDG_CONFIG_HOME"];
-  const configDir = xdgConfig ? import_node_path.default.join(xdgConfig, "ghostty") : import_node_path.default.join(import_node_os.default.homedir(), ".config", "ghostty");
+function resolveBackgroundImage(fs, path, env) {
+  const xdgConfig = env.get("XDG_CONFIG_HOME");
+  const configDir = xdgConfig ? path.join(xdgConfig, "ghostty") : path.join(env.homedir(), ".config", "ghostty");
   const imageExtensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
   try {
-    const files = import_node_fs.default.readdirSync(configDir);
+    const files = fs.readdir(configDir);
     for (const file of files) {
-      const ext = import_node_path.default.extname(file).toLowerCase();
+      const ext = path.extname(file).toLowerCase();
       if (!imageExtensions.includes(ext)) {
         continue;
       }
-      const filePath = import_node_path.default.join(configDir, file);
-      const stat = import_node_fs.default.statSync(filePath);
-      if (!stat.isFile() || stat.size > 10 * 1024 * 1024) {
+      const filePath = path.join(configDir, file);
+      const stat = fs.stat(filePath);
+      if (!stat.isFile || stat.size > 10 * 1024 * 1024) {
         continue;
       }
-      const data = import_node_fs.default.readFileSync(filePath);
+      const data = fs.readFileBase64(filePath);
       const mimeTypes = {
         ".png": "image/png",
         ".jpg": "image/jpeg",
@@ -624,22 +609,22 @@ function resolveBackgroundImage() {
         ".gif": "image/gif"
       };
       const mime = mimeTypes[ext] ?? "image/png";
-      return `data:${mime};base64,${data.toString("base64")}`;
+      return `data:${mime};base64,${data}`;
     }
   } catch {
     console.warn("[ghostty] failed to scan config dir for background images");
   }
   return null;
 }
-function resolveNamedTheme(themeName) {
-  const xdgConfig = process.env["XDG_CONFIG_HOME"];
-  const userThemeDir = xdgConfig ? import_node_path.default.join(xdgConfig, "ghostty", "themes") : import_node_path.default.join(import_node_os.default.homedir(), ".config", "ghostty", "themes");
-  const userPath = import_node_path.default.join(userThemeDir, themeName);
-  if (import_node_fs.default.existsSync(userPath)) {
+function resolveNamedTheme(themeName, fs, path, env) {
+  const xdgConfig = env.get("XDG_CONFIG_HOME");
+  const userThemeDir = xdgConfig ? path.join(xdgConfig, "ghostty", "themes") : path.join(env.homedir(), ".config", "ghostty", "themes");
+  const userPath = path.join(userThemeDir, themeName);
+  if (fs.exists(userPath)) {
     return userPath;
   }
   const bundledPath = `/Applications/Ghostty.app/Contents/Resources/ghostty/themes/${themeName}`;
-  if (import_node_fs.default.existsSync(bundledPath)) {
+  if (fs.exists(bundledPath)) {
     return bundledPath;
   }
   return null;

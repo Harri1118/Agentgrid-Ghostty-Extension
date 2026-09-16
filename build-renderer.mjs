@@ -7,7 +7,7 @@ await Promise.all([
     format: 'cjs',
     platform: 'node',
     outfile: 'dist/extension.js',
-    external: ['node:fs', 'node:path', 'node:os'],
+    external: [],
   }),
   build({
     entryPoints: ['src/renderer/index.tsx'],
