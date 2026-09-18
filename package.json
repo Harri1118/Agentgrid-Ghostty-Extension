@@ -5,7 +5,6 @@
   "description": "Ghostty-inspired terminal themes, keybindings, and shell integration for AgentGrid terminals.",
   "publisher": "agentgrid",
   "main": "dist/extension.js",
-  "renderer": "dist/renderer.js",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -94,7 +93,32 @@
         "title": "Import Ghostty Config",
         "category": "Ghostty"
       }
-    ]
+    ],
+    "ui": {
+      "commands": [
+        {
+          "id": "ghostty.applyTerminalTheme",
+          "title": "Apply Ghostty Terminal Theme"
+        },
+        {
+          "id": "ghostty.importConfig",
+          "title": "Import Ghostty Config"
+        },
+        {
+          "id": "ghostty.listPresets",
+          "title": "List Ghostty Presets"
+        }
+      ],
+      "statusBarItems": [
+        {
+          "id": "ghostty.activePreset",
+          "text": "Ghostty",
+          "tooltip": "Active Ghostty terminal theme",
+          "alignment": "right",
+          "priority": 400
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "node build-renderer.mjs",
@@ -102,7 +126,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.2",
-    "@types/react": "^19.3.0",
     "esbuild": "^0.21.0",
     "typescript": "^5.9.0"
   }
