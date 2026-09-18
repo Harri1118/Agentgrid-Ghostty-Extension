@@ -79,7 +79,38 @@
       {
         "id": "ghostty",
         "label": "Ghostty",
-        "description": "Ghostty-inspired terminal with custom themes and keybindings"
+        "description": "Ghostty-inspired terminal with custom themes and keybindings",
+        "defaultTheme": {
+          "background": "#282c34",
+          "foreground": "#ffffff",
+          "cursor": "#ffffff",
+          "cursorAccent": "#353a44",
+          "selectionBackground": "#ffffff",
+          "selectionForeground": "#282c34",
+          "black": "#1d1f21",
+          "red": "#cc6566",
+          "green": "#b6bd68",
+          "yellow": "#f0c674",
+          "blue": "#82a2be",
+          "magenta": "#b294bb",
+          "cyan": "#8abeb7",
+          "white": "#c4c8c6",
+          "brightBlack": "#666666",
+          "brightRed": "#d54e53",
+          "brightGreen": "#b9ca4b",
+          "brightYellow": "#e7c547",
+          "brightBlue": "#7aa6da",
+          "brightMagenta": "#c397d8",
+          "brightCyan": "#70c0b1",
+          "brightWhite": "#eaeaea"
+        },
+        "defaultConfig": {
+          "fontSize": 13,
+          "cursorStyle": "block",
+          "cursorBlink": true,
+          "scrollback": 10000,
+          "boldIsBright": false
+        }
       }
     ],
     "commands": [
