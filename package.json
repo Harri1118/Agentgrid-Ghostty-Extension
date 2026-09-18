@@ -115,9 +115,30 @@
           "cursorBlink": true,
           "scrollback": 10000,
           "boldIsBright": false
-        }
+        },
+        "configPath": "~/.config/ghostty/config"
       }
     ],
+    "configuration": {
+      "title": "Ghostty",
+      "properties": {
+        "ghostty.path": {
+          "type": "string",
+          "default": "/Applications/Ghostty.app/Contents/MacOS/ghostty",
+          "description": "Path to the Ghostty binary"
+        },
+        "ghostty.configPath": {
+          "type": "string",
+          "default": "~/.config/ghostty/config",
+          "description": "Path to the Ghostty configuration file"
+        },
+        "ghostty.useSystemTheme": {
+          "type": "boolean",
+          "default": true,
+          "description": "Read theme colors from the Ghostty config file and apply them to terminals"
+        }
+      }
+    },
     "commands": [
       {
         "command": "ghostty.applyTerminalTheme",
