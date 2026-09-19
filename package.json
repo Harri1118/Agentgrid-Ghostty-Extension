@@ -134,8 +134,7 @@
         },
         "external": {
           "launch": "open-app",
-          "app": "Ghostty.app",
-          "session": true
+          "app": "Ghostty.app"
         }
       }
     ],
@@ -169,18 +168,6 @@
         }
       }
     },
-    "commands": [
-      {
-        "command": "ghostty.applyTerminalTheme",
-        "title": "Apply Ghostty Terminal Theme",
-        "category": "Ghostty"
-      },
-      {
-        "command": "ghostty.importConfig",
-        "title": "Import Ghostty Config",
-        "category": "Ghostty"
-      }
-    ],
     "ui": {
       "commands": [
         {
