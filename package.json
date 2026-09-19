@@ -131,7 +131,8 @@
         },
         "external": {
           "launch": "open-app",
-          "app": "Ghostty.app"
+          "app": "Ghostty.app",
+          "session": true
         }
       }
     ],
