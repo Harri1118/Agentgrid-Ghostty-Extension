@@ -19,11 +19,11 @@ type FileStat = {
 }
 
 type FsNamespace = {
-  readFile(filePath: string, encoding?: string): string
-  readFileBase64(filePath: string): string
-  exists(filePath: string): boolean
-  readdir(dirPath: string): string[]
-  stat(filePath: string): FileStat
+  readFile(filePath: string, encoding?: string): Promise<string>
+  readFileBase64(filePath: string): Promise<string>
+  exists(filePath: string): Promise<boolean>
+  readdir(dirPath: string): Promise<string[]>
+  stat(filePath: string): Promise<FileStat | null>
 }
 
 type PathNamespace = {
@@ -35,9 +35,9 @@ type PathNamespace = {
 }
 
 type EnvNamespace = {
-  homedir(): string
-  get(name: string): string | undefined
-  platform(): string
+  homedir(): Promise<string>
+  get(name: string): Promise<string | undefined>
+  platform(): Promise<string>
 }
 
 type AgentGridApi = {
@@ -58,15 +58,13 @@ type AgentGridApi = {
 
 type ExtensionContext = {
   subscriptions: Disposable[]
-  extensionPath: string
   extensionId: string
   globalState: Memento
   workspaceState: Memento
-  storagePath: string
   agentgrid: AgentGridApi
 }
 
-export function activate(context: ExtensionContext): void {
+export async function activate(context: ExtensionContext): Promise<void> {
   const api = context.agentgrid
 
   const terminalEngine = api.terminalEngines.registerTerminalEngine({
@@ -83,8 +81,8 @@ export function activate(context: ExtensionContext): void {
     return applyPreset(api, context, presetId)
   })
 
-  const importConfigCmd = api.commands.registerCommand('ghostty.importConfig', () => {
-    loadRealGhosttyConfig(api, context)
+  const importConfigCmd = api.commands.registerCommand('ghostty.importConfig', async () => {
+    await loadRealGhosttyConfig(api, context)
 
     return { ok: true, imported: true }
   })
@@ -106,7 +104,7 @@ export function activate(context: ExtensionContext): void {
 
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd)
 
-  loadRealGhosttyConfig(api, context)
+  await loadRealGhosttyConfig(api, context)
 
   console.log('[ghostty] extension activated')
 }
@@ -115,8 +113,9 @@ export function deactivate(): void {
   console.log('[ghostty] extension deactivated')
 }
 
-function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): void {
-  const { fs, path, env } = api
+async function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): Promise<void> {
+  const { fs, path } = api
+  const home = await api.env.homedir()
   const basePreset = GHOSTTY_PRESETS[0]!
   let theme: GhosttyTerminalTheme = { ...basePreset.terminalTheme }
   const config: GhosttyTerminalConfig = {
@@ -126,11 +125,11 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     scrollback: basePreset.config.scrollback_limit,
   }
 
-  const ghosttyThemeFile = resolveGhosttyThemeFile(fs)
+  const ghosttyThemeFile = await resolveGhosttyThemeFile(fs)
 
   if (ghosttyThemeFile) {
     try {
-      const raw = fs.readFile(ghosttyThemeFile)
+      const raw = await fs.readFile(ghosttyThemeFile)
       const parsed = parseGhosttyConfig(raw)
 
       theme = { ...theme, ...extractTerminalTheme(parsed) }
@@ -140,19 +139,19 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     }
   }
 
-  const configPath = resolveGhosttyConfigPath(fs, path, env)
+  const configPath = await resolveGhosttyConfigPath(fs, path, home)
 
-  if (configPath && fs.exists(configPath)) {
+  if (configPath && await fs.exists(configPath)) {
     try {
-      const raw = fs.readFile(configPath)
+      const raw = await fs.readFile(configPath)
       const parsed = parseGhosttyConfig(raw)
 
       if (parsed.theme) {
-        const namedThemePath = resolveNamedTheme(parsed.theme, fs, path, env)
+        const namedThemePath = await resolveNamedTheme(parsed.theme, fs, path, home)
 
         if (namedThemePath) {
           try {
-            const themeRaw = fs.readFile(namedThemePath)
+            const themeRaw = await fs.readFile(namedThemePath)
             const themeParsed = parseGhosttyConfig(themeRaw)
 
             theme = { ...theme, ...extractTerminalTheme(themeParsed) }
@@ -170,7 +169,7 @@ function loadRealGhosttyConfig(api: AgentGridApi, context: ExtensionContext): vo
     }
   }
 
-  const bgImage = resolveBackgroundImage(fs, path, env)
+  const bgImage = await resolveBackgroundImage(fs, path, home)
 
   if (bgImage) {
     config.backgroundImageDataUrl = bgImage
@@ -235,35 +234,28 @@ function applyPreset(api: AgentGridApi, context: ExtensionContext, presetId: str
   return { ok: true, preset: preset.id }
 }
 
-function resolveGhosttyConfigPath(fs: FsNamespace, path: PathNamespace, env: EnvNamespace): string | null {
-  const xdgConfig = env.get('XDG_CONFIG_HOME')
-  const homeConfig = path.join(env.homedir(), '.config', 'ghostty', 'config')
-  const xdgPath = xdgConfig ? path.join(xdgConfig, 'ghostty', 'config') : null
+async function resolveGhosttyConfigPath(fs: FsNamespace, path: PathNamespace, home: string): Promise<string | null> {
+  const homeConfig = path.join(home, '.config', 'ghostty', 'config')
 
-  if (xdgPath && fs.exists(xdgPath)) { return xdgPath }
-
-  if (fs.exists(homeConfig)) { return homeConfig }
+  if (await fs.exists(homeConfig)) { return homeConfig }
 
   return null
 }
 
-function resolveGhosttyThemeFile(fs: FsNamespace): string | null {
+async function resolveGhosttyThemeFile(fs: FsNamespace): Promise<string | null> {
   const bundledPath = '/Applications/Ghostty.app/Contents/Resources/ghostty/themes/Ghostty Default Style Dark'
 
-  if (fs.exists(bundledPath)) { return bundledPath }
+  if (await fs.exists(bundledPath)) { return bundledPath }
 
   return null
 }
 
-function resolveBackgroundImage(fs: FsNamespace, path: PathNamespace, env: EnvNamespace): string | null {
-  const xdgConfig = env.get('XDG_CONFIG_HOME')
-  const configDir = xdgConfig
-    ? path.join(xdgConfig, 'ghostty')
-    : path.join(env.homedir(), '.config', 'ghostty')
+async function resolveBackgroundImage(fs: FsNamespace, path: PathNamespace, home: string): Promise<string | null> {
+  const configDir = path.join(home, '.config', 'ghostty')
   const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif']
 
   try {
-    const files = fs.readdir(configDir)
+    const files = await fs.readdir(configDir)
 
     for (const file of files) {
       const ext = path.extname(file).toLowerCase()
@@ -271,11 +263,11 @@ function resolveBackgroundImage(fs: FsNamespace, path: PathNamespace, env: EnvNa
       if (!imageExtensions.includes(ext)) { continue }
 
       const filePath = path.join(configDir, file)
-      const stat = fs.stat(filePath)
+      const stat = await fs.stat(filePath)
 
-      if (!stat.isFile || stat.size > 10 * 1024 * 1024) { continue }
+      if (!stat || !stat.isFile || stat.size > 10 * 1024 * 1024) { continue }
 
-      const data = fs.readFileBase64(filePath)
+      const data = await fs.readFileBase64(filePath)
       const mimeTypes: Record<string, string> = {
         '.png': 'image/png',
         '.jpg': 'image/jpeg',
@@ -294,18 +286,15 @@ function resolveBackgroundImage(fs: FsNamespace, path: PathNamespace, env: EnvNa
   return null
 }
 
-function resolveNamedTheme(themeName: string, fs: FsNamespace, path: PathNamespace, env: EnvNamespace): string | null {
-  const xdgConfig = env.get('XDG_CONFIG_HOME')
-  const userThemeDir = xdgConfig
-    ? path.join(xdgConfig, 'ghostty', 'themes')
-    : path.join(env.homedir(), '.config', 'ghostty', 'themes')
+async function resolveNamedTheme(themeName: string, fs: FsNamespace, path: PathNamespace, home: string): Promise<string | null> {
+  const userThemeDir = path.join(home, '.config', 'ghostty', 'themes')
   const userPath = path.join(userThemeDir, themeName)
 
-  if (fs.exists(userPath)) { return userPath }
+  if (await fs.exists(userPath)) { return userPath }
 
   const bundledPath = `/Applications/Ghostty.app/Contents/Resources/ghostty/themes/${themeName}`
 
-  if (fs.exists(bundledPath)) { return bundledPath }
+  if (await fs.exists(bundledPath)) { return bundledPath }
 
   return null
 }

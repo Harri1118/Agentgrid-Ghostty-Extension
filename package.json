@@ -20,7 +20,8 @@
   "permissions": [
     "ui:engine",
     "ui:panel",
-    "ui:slots"
+    "ui:slots",
+    "fs:read"
   ],
   "activationEvents": [
     "*"
@@ -130,7 +131,16 @@
             "font-size": "fontSize",
             "cursor-style": "cursorStyle",
             "scrollback-limit": "scrollback"
-          }
+          },
+          "themeKeyMap": {
+            "background": "background",
+            "foreground": "foreground",
+            "cursor-color": "cursor",
+            "cursor-text": "cursorAccent",
+            "selection-background": "selectionBackground",
+            "selection-foreground": "selectionForeground"
+          },
+          "paletteKey": "palette"
         },
         "mode": {
           "kind": "external",
