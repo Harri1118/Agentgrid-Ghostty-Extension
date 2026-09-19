@@ -116,6 +116,19 @@
           "scrollback": 10000,
           "boldIsBright": false
         },
+        "configFile": {
+          "path": "~/.config/ghostty/config",
+          "format": "key-value",
+          "keyMap": {
+            "background-image": "backgroundImage",
+            "background-image-opacity": "backgroundOpacity",
+            "background-opacity": "backgroundOpacity",
+            "font-family": "fontFamily",
+            "font-size": "fontSize",
+            "cursor-style": "cursorStyle",
+            "scrollback-limit": "scrollback"
+          }
+        },
         "external": {
           "launch": "open-app",
           "app": "Ghostty.app"
