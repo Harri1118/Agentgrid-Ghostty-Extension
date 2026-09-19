@@ -117,7 +117,10 @@
           "boldIsBright": false
         },
         "configFile": {
-          "path": "~/.config/ghostty/config",
+          "path": [
+            "~/Library/Application Support/com.mitchellh.ghostty/config",
+            "~/.config/ghostty/config"
+          ],
           "format": "key-value",
           "keyMap": {
             "background-image": "backgroundImage",
@@ -146,7 +149,7 @@
         },
         "ghostty.configPath": {
           "type": "string",
-          "default": "~/.config/ghostty/config",
+          "default": "~/Library/Application Support/com.mitchellh.ghostty/config",
           "description": "Path to the Ghostty configuration file"
         },
         "ghostty.useSystemTheme": {
