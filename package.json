@@ -116,7 +116,10 @@
           "scrollback": 10000,
           "boldIsBright": false
         },
-        "configPath": "~/.config/ghostty/config"
+        "external": {
+          "launch": "open-app",
+          "app": "Ghostty.app"
+        }
       }
     ],
     "configuration": {
