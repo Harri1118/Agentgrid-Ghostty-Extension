@@ -132,7 +132,8 @@
             "scrollback-limit": "scrollback"
           }
         },
-        "external": {
+        "mode": {
+          "kind": "external",
           "launch": "open-app",
           "app": "Ghostty.app"
         }
