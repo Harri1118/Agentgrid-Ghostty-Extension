@@ -1,112 +1,169 @@
 {
-  "id": "agentgrid-ghostty",
+  "id": "agentgrid.agentgrid-ghostty",
   "version": "0.1.0",
   "publisher": "agentgrid",
   "displayName": "Ghostty Terminal",
   "description": "Ghostty-inspired terminal themes, keybindings, and shell integration for AgentGrid terminals.",
-  "permissions": ["ui:engine", "ui:panel", "ui:slots"],
+  "main": "dist/extension.js",
+  "engines": {
+    "agentgrid": ">=2.8.0"
+  },
+  "activationEvents": ["*"],
+  "permissions": ["ui:engine", "ui:panel", "ui:slots", "fs:read"],
   "contributes": {
+    "themes": [
+      {
+        "id": "ghostty-dark",
+        "label": "Ghostty Dark",
+        "description": "Dark theme inspired by Ghostty's default palette",
+        "swatch": {
+          "bg": "#0b0e14",
+          "primary": "#59c2ff",
+          "text": "#bfbdb6"
+        },
+        "tokens": {
+          "--bg-app": "#0b0e14",
+          "--bg-card": "#11141a",
+          "--bg-surface": "#161a22",
+          "--bg-hover": "#1c2029",
+          "--text-primary": "#bfbdb6",
+          "--text-secondary": "#565b66",
+          "--text-muted": "#3d424d",
+          "--border-default": "#1c2029",
+          "--border-strong": "#2d323c",
+          "--accent-blue": "#59c2ff",
+          "--accent-green": "#7fd962",
+          "--accent-red": "#d95757",
+          "--accent-yellow": "#e6b450",
+          "--accent-purple": "#d2a6ff"
+        }
+      },
+      {
+        "id": "ghostty-light",
+        "label": "Ghostty Light",
+        "description": "Light theme inspired by Ghostty's light palette",
+        "swatch": {
+          "bg": "#f8f8f2",
+          "primary": "#0969da",
+          "text": "#24292f"
+        },
+        "tokens": {
+          "--bg-app": "#f8f8f2",
+          "--bg-card": "#ffffff",
+          "--bg-surface": "#f0f0ea",
+          "--bg-hover": "#e8e8e2",
+          "--text-primary": "#24292f",
+          "--text-secondary": "#57606a",
+          "--text-muted": "#8c959f",
+          "--border-default": "#d8dee4",
+          "--border-strong": "#bcc3cd",
+          "--accent-blue": "#0969da",
+          "--accent-green": "#116329",
+          "--accent-red": "#cf222e",
+          "--accent-yellow": "#9a6700",
+          "--accent-purple": "#8250df"
+        }
+      }
+    ],
+    "terminalEngines": [
+      {
+        "id": "ghostty",
+        "label": "Ghostty",
+        "description": "Ghostty-inspired terminal with custom themes and keybindings",
+        "defaultTheme": {
+          "background": "#282c34",
+          "foreground": "#ffffff",
+          "cursor": "#ffffff",
+          "cursorAccent": "#353a44",
+          "selectionBackground": "#ffffff",
+          "selectionForeground": "#282c34",
+          "black": "#1d1f21",
+          "red": "#cc6566",
+          "green": "#b6bd68",
+          "yellow": "#f0c674",
+          "blue": "#82a2be",
+          "magenta": "#b294bb",
+          "cyan": "#8abeb7",
+          "white": "#c4c8c6",
+          "brightBlack": "#666666",
+          "brightRed": "#d54e53",
+          "brightGreen": "#b9ca4b",
+          "brightYellow": "#e7c547",
+          "brightBlue": "#7aa6da",
+          "brightMagenta": "#c397d8",
+          "brightCyan": "#70c0b1",
+          "brightWhite": "#eaeaea"
+        },
+        "defaultConfig": {
+          "fontSize": 13,
+          "cursorStyle": "block",
+          "cursorBlink": true,
+          "scrollback": 10000,
+          "boldIsBright": false
+        },
+        "configFile": {
+          "path": [
+            "~/Library/Application Support/com.mitchellh.ghostty/config",
+            "~/.config/ghostty/config"
+          ],
+          "format": "key-value",
+          "keyMap": {
+            "background-image": "backgroundImage",
+            "background-image-opacity": "backgroundOpacity",
+            "background-opacity": "backgroundOpacity",
+            "font-family": "fontFamily",
+            "font-size": "fontSize",
+            "cursor-style": "cursorStyle",
+            "scrollback-limit": "scrollback"
+          },
+          "themeKeyMap": {
+            "background": "background",
+            "foreground": "foreground",
+            "cursor-color": "cursor",
+            "cursor-text": "cursorAccent",
+            "selection-background": "selectionBackground",
+            "selection-foreground": "selectionForeground"
+          },
+          "paletteKey": "palette"
+        },
+        "mode": {
+          "kind": "external",
+          "launch": "open-app",
+          "app": "Ghostty.app"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Ghostty",
+      "properties": {
+        "ghostty.path": {
+          "type": "string",
+          "default": "/Applications/Ghostty.app/Contents/MacOS/ghostty",
+          "description": "Path to the Ghostty binary"
+        },
+        "ghostty.configPath": {
+          "type": "string",
+          "default": "~/Library/Application Support/com.mitchellh.ghostty/config",
+          "description": "Path to the Ghostty configuration file"
+        },
+        "ghostty.useSystemTheme": {
+          "type": "boolean",
+          "default": true,
+          "description": "Read theme colors from the Ghostty config file and apply them to terminals"
+        },
+        "ghostty.backgroundImage": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a background image for the terminal pane"
+        },
+        "ghostty.backgroundOpacity": {
+          "type": "number",
+          "default": 0.15,
+          "description": "Opacity of the background image (0.0 to 1.0)"
+        }
+      }
+    },
     "ui": {
-      "terminalEngines": [
-        {
-          "id": "ghostty",
-          "label": "Ghostty",
-          "description": "Ghostty-inspired terminal with custom themes and keybindings",
-          "defaultTheme": {
-            "background": "#282c34",
-            "foreground": "#ffffff",
-            "cursor": "#ffffff",
-            "cursorAccent": "#353a44",
-            "selectionBackground": "#ffffff",
-            "selectionForeground": "#282c34",
-            "black": "#1d1f21",
-            "red": "#cc6566",
-            "green": "#b6bd68",
-            "yellow": "#f0c674",
-            "blue": "#82a2be",
-            "magenta": "#b294bb",
-            "cyan": "#8abeb7",
-            "white": "#c4c8c6",
-            "brightBlack": "#666666",
-            "brightRed": "#d54e53",
-            "brightGreen": "#b9ca4b",
-            "brightYellow": "#e7c547",
-            "brightBlue": "#7aa6da",
-            "brightMagenta": "#c397d8",
-            "brightCyan": "#70c0b1",
-            "brightWhite": "#eaeaea"
-          },
-          "defaultConfig": {
-            "fontSize": 13,
-            "cursorStyle": "block",
-            "cursorBlink": true,
-            "scrollback": 10000,
-            "boldIsBright": false
-          },
-          "configFile": {
-            "path": [
-              "~/Library/Application Support/com.mitchellh.ghostty/config",
-              "~/.config/ghostty/config"
-            ],
-            "format": "key-value",
-            "keyMap": {
-              "background-image": "backgroundImage",
-              "background-image-opacity": "backgroundOpacity",
-              "background-opacity": "backgroundOpacity",
-              "font-family": "fontFamily",
-              "font-size": "fontSize",
-              "cursor-style": "cursorStyle",
-              "scrollback-limit": "scrollback"
-            },
-            "themeKeyMap": {
-              "background": "background",
-              "foreground": "foreground",
-              "cursor-color": "cursor",
-              "cursor-text": "cursorAccent",
-              "selection-background": "selectionBackground",
-              "selection-foreground": "selectionForeground"
-            },
-            "paletteKey": "palette"
-          },
-          "mode": {
-            "kind": "external",
-            "launch": "open-app",
-            "app": "Ghostty.app"
-          }
-        }
-      ],
-      "configuration": [
-        {
-          "title": "Ghostty",
-          "properties": {
-            "ghostty.path": {
-              "type": "string",
-              "default": "/Applications/Ghostty.app/Contents/MacOS/ghostty",
-              "description": "Path to the Ghostty binary"
-            },
-            "ghostty.configPath": {
-              "type": "string",
-              "default": "~/Library/Application Support/com.mitchellh.ghostty/config",
-              "description": "Path to the Ghostty configuration file"
-            },
-            "ghostty.useSystemTheme": {
-              "type": "boolean",
-              "default": true,
-              "description": "Read theme colors from the Ghostty config file and apply them to terminals"
-            },
-            "ghostty.backgroundImage": {
-              "type": "string",
-              "default": "",
-              "description": "Path to a background image for the terminal pane"
-            },
-            "ghostty.backgroundOpacity": {
-              "type": "number",
-              "default": 0.15,
-              "description": "Opacity of the background image (0.0 to 1.0)"
-            }
-          }
-        }
-      ],
       "commands": [
         {
           "id": "ghostty.applyTerminalTheme",
