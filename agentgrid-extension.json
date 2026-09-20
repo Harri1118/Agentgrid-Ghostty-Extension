@@ -1,0 +1,135 @@
+{
+  "id": "agentgrid-ghostty",
+  "version": "0.1.0",
+  "publisher": "agentgrid",
+  "displayName": "Ghostty Terminal",
+  "description": "Ghostty-inspired terminal themes, keybindings, and shell integration for AgentGrid terminals.",
+  "permissions": ["ui:engine", "ui:panel", "ui:slots"],
+  "contributes": {
+    "ui": {
+      "terminalEngines": [
+        {
+          "id": "ghostty",
+          "label": "Ghostty",
+          "description": "Ghostty-inspired terminal with custom themes and keybindings",
+          "defaultTheme": {
+            "background": "#282c34",
+            "foreground": "#ffffff",
+            "cursor": "#ffffff",
+            "cursorAccent": "#353a44",
+            "selectionBackground": "#ffffff",
+            "selectionForeground": "#282c34",
+            "black": "#1d1f21",
+            "red": "#cc6566",
+            "green": "#b6bd68",
+            "yellow": "#f0c674",
+            "blue": "#82a2be",
+            "magenta": "#b294bb",
+            "cyan": "#8abeb7",
+            "white": "#c4c8c6",
+            "brightBlack": "#666666",
+            "brightRed": "#d54e53",
+            "brightGreen": "#b9ca4b",
+            "brightYellow": "#e7c547",
+            "brightBlue": "#7aa6da",
+            "brightMagenta": "#c397d8",
+            "brightCyan": "#70c0b1",
+            "brightWhite": "#eaeaea"
+          },
+          "defaultConfig": {
+            "fontSize": 13,
+            "cursorStyle": "block",
+            "cursorBlink": true,
+            "scrollback": 10000,
+            "boldIsBright": false
+          },
+          "configFile": {
+            "path": [
+              "~/Library/Application Support/com.mitchellh.ghostty/config",
+              "~/.config/ghostty/config"
+            ],
+            "format": "key-value",
+            "keyMap": {
+              "background-image": "backgroundImage",
+              "background-image-opacity": "backgroundOpacity",
+              "background-opacity": "backgroundOpacity",
+              "font-family": "fontFamily",
+              "font-size": "fontSize",
+              "cursor-style": "cursorStyle",
+              "scrollback-limit": "scrollback"
+            },
+            "themeKeyMap": {
+              "background": "background",
+              "foreground": "foreground",
+              "cursor-color": "cursor",
+              "cursor-text": "cursorAccent",
+              "selection-background": "selectionBackground",
+              "selection-foreground": "selectionForeground"
+            },
+            "paletteKey": "palette"
+          },
+          "mode": {
+            "kind": "external",
+            "launch": "open-app",
+            "app": "Ghostty.app"
+          }
+        }
+      ],
+      "configuration": [
+        {
+          "title": "Ghostty",
+          "properties": {
+            "ghostty.path": {
+              "type": "string",
+              "default": "/Applications/Ghostty.app/Contents/MacOS/ghostty",
+              "description": "Path to the Ghostty binary"
+            },
+            "ghostty.configPath": {
+              "type": "string",
+              "default": "~/Library/Application Support/com.mitchellh.ghostty/config",
+              "description": "Path to the Ghostty configuration file"
+            },
+            "ghostty.useSystemTheme": {
+              "type": "boolean",
+              "default": true,
+              "description": "Read theme colors from the Ghostty config file and apply them to terminals"
+            },
+            "ghostty.backgroundImage": {
+              "type": "string",
+              "default": "",
+              "description": "Path to a background image for the terminal pane"
+            },
+            "ghostty.backgroundOpacity": {
+              "type": "number",
+              "default": 0.15,
+              "description": "Opacity of the background image (0.0 to 1.0)"
+            }
+          }
+        }
+      ],
+      "commands": [
+        {
+          "id": "ghostty.applyTerminalTheme",
+          "title": "Apply Ghostty Terminal Theme"
+        },
+        {
+          "id": "ghostty.importConfig",
+          "title": "Import Ghostty Config"
+        },
+        {
+          "id": "ghostty.listPresets",
+          "title": "List Ghostty Presets"
+        }
+      ],
+      "statusBarItems": [
+        {
+          "id": "ghostty.activePreset",
+          "text": "Ghostty",
+          "tooltip": "Active Ghostty terminal theme",
+          "alignment": "right",
+          "priority": 400
+        }
+      ]
+    }
+  }
+}
