@@ -1,5 +1,5 @@
 {
-  "id": "agentgrid.agentgrid-ghostty",
+  "name": "agentgrid-ghostty",
   "version": "0.1.0",
   "publisher": "agentgrid",
   "displayName": "Ghostty Terminal",
