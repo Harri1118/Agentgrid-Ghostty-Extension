@@ -1,29 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
-
-type SlotApi = {
-  registerSlotComponent: (
-    slotName: string,
-    extensionId: string,
-    component: React.ComponentType<Record<string, unknown>>,
-  ) => () => void
-}
-
-type PluginsApi = {
-  executeCommand(args: { commandId: string; payload?: unknown }): Promise<unknown>
-}
+import { createSlot } from '@agentgrid/sdk'
 
 type GhosttyPresetInfo = { id: string; label: string }
 
-const api = (globalThis as any).__agentgrid_slot_api as SlotApi | undefined
-const extId = (globalThis as any).__agentgrid_extension_id as string | undefined
-
-function getPluginsApi(): PluginsApi {
-  return (window as any).electronAPI.plugins
-}
-
-async function invokeCommand<T>(commandId: string, payload?: unknown): Promise<T> {
-  return getPluginsApi().executeCommand({ commandId, payload }) as Promise<T>
-}
+const slot = createSlot()
 
 function GhosttySettingsSection(_props: Record<string, unknown>) {
   const [presets, setPresets] = useState<GhosttyPresetInfo[]>([])
@@ -31,12 +11,12 @@ function GhosttySettingsSection(_props: Record<string, unknown>) {
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
   useEffect(() => {
-    void invokeCommand<GhosttyPresetInfo[]>('ghostty.listPresets').then(setPresets).catch(() => {})
-    void invokeCommand<string | null>('ghostty.getActivePreset').then(setActivePreset).catch(() => {})
+    void slot.commands.execute<GhosttyPresetInfo[]>('ghostty.listPresets').then(setPresets).catch(() => {})
+    void slot.commands.execute<string | null>('ghostty.getActivePreset').then(setActivePreset).catch(() => {})
   }, [])
 
   const handleApplyPreset = useCallback(async (presetId: string) => {
-    const result = await invokeCommand<{ ok: boolean }>('ghostty.applyTerminalTheme', presetId)
+    const result = await slot.commands.execute<{ ok: boolean }>('ghostty.applyTerminalTheme', presetId)
 
     if (result.ok) {
       setActivePreset(presetId)
@@ -44,7 +24,7 @@ function GhosttySettingsSection(_props: Record<string, unknown>) {
   }, [])
 
   const handleImport = useCallback(async () => {
-    const result = await invokeCommand<{ ok: boolean; error?: string }>('ghostty.importConfig')
+    const result = await slot.commands.execute<{ ok: boolean; error?: string }>('ghostty.importConfig')
 
     if (result.ok) {
       setImportStatus('success')
@@ -108,7 +88,7 @@ function GhosttyStatusBarIndicator(_props: Record<string, unknown>) {
   const [activePreset, setActivePreset] = useState<string | null>(null)
 
   useEffect(() => {
-    void invokeCommand<string | null>('ghostty.getActivePreset').then(setActivePreset).catch(() => {})
+    void slot.commands.execute<string | null>('ghostty.getActivePreset').then(setActivePreset).catch(() => {})
   }, [])
 
   if (!activePreset) { return null }
@@ -132,7 +112,5 @@ function GhosttyStatusBarIndicator(_props: Record<string, unknown>) {
   )
 }
 
-if (api && extId) {
-  api.registerSlotComponent('settings-section', extId, GhosttySettingsSection)
-  api.registerSlotComponent('status-bar-right', extId, GhosttyStatusBarIndicator)
-}
+slot.register('settings-section', GhosttySettingsSection)
+slot.register('status-bar-right', GhosttyStatusBarIndicator)

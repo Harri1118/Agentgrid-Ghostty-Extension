@@ -19,33 +19,57 @@
     createContext
   } = injected;
 
+  // ../agent-grid/.agent-grid/worktrees/sdk/packages/sdk/dist/index.js
+  var MISSING_SLOT_API = "@agentgrid/sdk: __agentgrid_slot_api not found \u2014 is this running inside an AgentGrid slot renderer?";
+  var MISSING_EXTENSION_ID = "@agentgrid/sdk: __agentgrid_extension_id not found";
+  var MISSING_PLUGINS_API = "@agentgrid/sdk: window.electronAPI.plugins not found";
+  function createSlot() {
+    const globals = globalThis;
+    const slotApi = globals.__agentgrid_slot_api;
+    if (!slotApi) {
+      throw new Error(MISSING_SLOT_API);
+    }
+    const extensionId = globals.__agentgrid_extension_id;
+    if (!extensionId) {
+      throw new Error(MISSING_EXTENSION_ID);
+    }
+    const pluginsApi = globals.electronAPI?.plugins;
+    if (!pluginsApi) {
+      throw new Error(MISSING_PLUGINS_API);
+    }
+    return {
+      extensionId,
+      commands: {
+        execute(commandId, payload) {
+          return pluginsApi.executeCommand({ commandId, payload });
+        }
+      },
+      register(slotName, component) {
+        return slotApi.registerSlotComponent(slotName, extensionId, component);
+      }
+    };
+  }
+
   // src/renderer/index.tsx
-  var api = globalThis.__agentgrid_slot_api;
-  var extId = globalThis.__agentgrid_extension_id;
-  function getPluginsApi() {
-    return window.electronAPI.plugins;
-  }
-  async function invokeCommand(commandId, payload) {
-    return getPluginsApi().executeCommand({ commandId, payload });
-  }
+  var slot = createSlot();
   function GhosttySettingsSection(_props) {
     const [presets, setPresets] = useState([]);
     const [activePreset, setActivePreset] = useState(null);
     const [importStatus, setImportStatus] = useState("idle");
     useEffect(() => {
-      void invokeCommand("ghostty.listPresets").then(setPresets).catch(() => {
+      void slot.commands.execute("ghostty.listPresets").then(setPresets).catch(() => {
       });
-      void invokeCommand("ghostty.getActivePreset").then(setActivePreset).catch(() => {
+      void slot.commands.execute("ghostty.getActivePreset").then(setActivePreset).catch(() => {
       });
     }, []);
     const handleApplyPreset = useCallback(async (presetId) => {
-      const result = await invokeCommand("ghostty.applyTerminalTheme", presetId);
+      const result = await slot.commands.execute("ghostty.applyTerminalTheme", presetId);
       if (result.ok) {
         setActivePreset(presetId);
       }
     }, []);
     const handleImport = useCallback(async () => {
-      const result = await invokeCommand("ghostty.importConfig");
+      const result = await slot.commands.execute("ghostty.importConfig");
       if (result.ok) {
         setImportStatus("success");
         setActivePreset("imported");
@@ -93,7 +117,7 @@
   function GhosttyStatusBarIndicator(_props) {
     const [activePreset, setActivePreset] = useState(null);
     useEffect(() => {
-      void invokeCommand("ghostty.getActivePreset").then(setActivePreset).catch(() => {
+      void slot.commands.execute("ghostty.getActivePreset").then(setActivePreset).catch(() => {
       });
     }, []);
     if (!activePreset) {
@@ -116,8 +140,6 @@
       label
     );
   }
-  if (api && extId) {
-    api.registerSlotComponent("settings-section", extId, GhosttySettingsSection);
-    api.registerSlotComponent("status-bar-right", extId, GhosttyStatusBarIndicator);
-  }
+  slot.register("settings-section", GhosttySettingsSection);
+  slot.register("status-bar-right", GhosttyStatusBarIndicator);
 })();

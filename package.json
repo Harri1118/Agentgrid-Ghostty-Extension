@@ -210,6 +210,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@agentgrid/sdk": "file:../agent-grid/.agent-grid/worktrees/sdk/packages/sdk",
     "@types/node": "^22.20.2",
     "@types/react": "^19.3.0",
     "esbuild": "^0.21.0",

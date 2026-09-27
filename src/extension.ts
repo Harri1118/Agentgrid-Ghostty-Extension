@@ -1,73 +1,12 @@
+import type { ExtensionContext, AgentGridApi, FsNamespace, PathNamespace } from '@agentgrid/sdk'
 import { parseGhosttyConfig, extractTerminalTheme } from './config-parser'
 import { GHOSTTY_PRESETS } from './presets'
 import type { GhosttyTerminalTheme, GhosttyTerminalConfig, GhosttyEngineResponse, GhosttyConfig } from './types'
 
-type Disposable = { dispose(): void }
-
-type Memento = {
-  get<T>(key: string, defaultValue?: T): T | undefined
-  update(key: string, value: unknown): void
-  keys(): readonly string[]
-}
-
-type FileStat = {
-  size: number
-  isFile: boolean
-  isDirectory: boolean
-  isSymbolicLink: boolean
-  mtimeMs: number
-}
-
-type FsNamespace = {
-  readFile(filePath: string, encoding?: string): Promise<string>
-  readFileBase64(filePath: string): Promise<string>
-  exists(filePath: string): Promise<boolean>
-  readdir(dirPath: string): Promise<string[]>
-  stat(filePath: string): Promise<FileStat | null>
-}
-
-type PathNamespace = {
-  join(...parts: string[]): string
-  dirname(p: string): string
-  basename(p: string, ext?: string): string
-  extname(p: string): string
-  resolve(...parts: string[]): string
-}
-
-type EnvNamespace = {
-  homedir(): Promise<string>
-  get(name: string): Promise<string | undefined>
-  platform(): Promise<string>
-}
-
-type AgentGridApi = {
-  commands: {
-    registerCommand(id: string, handler: (...args: unknown[]) => unknown): Disposable
-  }
-  terminalEngines: {
-    registerTerminalEngine(engine: { id: string; label: string; description?: string }): Disposable
-  }
-  settings: {
-    get(key: string): unknown
-    update(key: string, value: unknown): void
-  }
-  fs: FsNamespace
-  path: PathNamespace
-  env: EnvNamespace
-}
-
-type ExtensionContext = {
-  subscriptions: Disposable[]
-  extensionId: string
-  globalState: Memento
-  workspaceState: Memento
-  agentgrid: AgentGridApi
-}
-
 export async function activate(context: ExtensionContext): Promise<void> {
   const api = context.agentgrid
 
-  const terminalEngine = api.terminalEngines.registerTerminalEngine({
+  const terminalEngine = await api.terminalEngines.registerTerminalEngine({
     id: 'ghostty',
     label: 'Ghostty',
     description: 'Ghostty terminal engine — loads your real Ghostty config',
@@ -75,29 +14,29 @@ export async function activate(context: ExtensionContext): Promise<void> {
 
   context.subscriptions.push(terminalEngine)
 
-  const applyThemeCmd = api.commands.registerCommand('ghostty.applyTerminalTheme', (...args: unknown[]) => {
+  const applyThemeCmd = await api.commands.registerCommand('ghostty.applyTerminalTheme', (...args: unknown[]) => {
     const presetId = (args[0] as string) || 'ghostty-default-dark'
 
     return applyPreset(api, context, presetId)
   })
 
-  const importConfigCmd = api.commands.registerCommand('ghostty.importConfig', async () => {
+  const importConfigCmd = await api.commands.registerCommand('ghostty.importConfig', async () => {
     await loadRealGhosttyConfig(api, context)
 
     return { ok: true, imported: true }
   })
 
-  const listPresetsCmd = api.commands.registerCommand('ghostty.listPresets', () => {
+  const listPresetsCmd = await api.commands.registerCommand('ghostty.listPresets', () => {
     return GHOSTTY_PRESETS.map((p) => ({ id: p.id, label: p.label }))
   })
 
-  const getActivePresetCmd = api.commands.registerCommand('ghostty.getActivePreset', () => {
-    return context.globalState.get<string>('activePreset') ?? null
+  const getActivePresetCmd = await api.commands.registerCommand('ghostty.getActivePreset', async () => {
+    return await context.globalState.get<string>('activePreset') ?? null
   })
 
-  const getTerminalThemeCmd = api.commands.registerCommand('ghostty.getTerminalTheme', (): GhosttyEngineResponse => {
-    const theme = context.globalState.get<GhosttyTerminalTheme>('terminalTheme') ?? GHOSTTY_PRESETS[0]!.terminalTheme
-    const config = context.globalState.get<GhosttyTerminalConfig>('terminalConfig') ?? {}
+  const getTerminalThemeCmd = await api.commands.registerCommand('ghostty.getTerminalTheme', async (): Promise<GhosttyEngineResponse> => {
+    const theme = await context.globalState.get<GhosttyTerminalTheme>('terminalTheme') ?? GHOSTTY_PRESETS[0]!.terminalTheme
+    const config = await context.globalState.get<GhosttyTerminalConfig>('terminalConfig') ?? {}
 
     return { theme, config }
   })

@@ -370,29 +370,29 @@ var GHOSTTY_PRESETS = [
 // src/extension.ts
 async function activate(context) {
   const api = context.agentgrid;
-  const terminalEngine = api.terminalEngines.registerTerminalEngine({
+  const terminalEngine = await api.terminalEngines.registerTerminalEngine({
     id: "ghostty",
     label: "Ghostty",
     description: "Ghostty terminal engine \u2014 loads your real Ghostty config"
   });
   context.subscriptions.push(terminalEngine);
-  const applyThemeCmd = api.commands.registerCommand("ghostty.applyTerminalTheme", (...args) => {
+  const applyThemeCmd = await api.commands.registerCommand("ghostty.applyTerminalTheme", (...args) => {
     const presetId = args[0] || "ghostty-default-dark";
     return applyPreset(api, context, presetId);
   });
-  const importConfigCmd = api.commands.registerCommand("ghostty.importConfig", async () => {
+  const importConfigCmd = await api.commands.registerCommand("ghostty.importConfig", async () => {
     await loadRealGhosttyConfig(api, context);
     return { ok: true, imported: true };
   });
-  const listPresetsCmd = api.commands.registerCommand("ghostty.listPresets", () => {
+  const listPresetsCmd = await api.commands.registerCommand("ghostty.listPresets", () => {
     return GHOSTTY_PRESETS.map((p) => ({ id: p.id, label: p.label }));
   });
-  const getActivePresetCmd = api.commands.registerCommand("ghostty.getActivePreset", () => {
-    return context.globalState.get("activePreset") ?? null;
+  const getActivePresetCmd = await api.commands.registerCommand("ghostty.getActivePreset", async () => {
+    return await context.globalState.get("activePreset") ?? null;
   });
-  const getTerminalThemeCmd = api.commands.registerCommand("ghostty.getTerminalTheme", () => {
-    const theme = context.globalState.get("terminalTheme") ?? GHOSTTY_PRESETS[0].terminalTheme;
-    const config = context.globalState.get("terminalConfig") ?? {};
+  const getTerminalThemeCmd = await api.commands.registerCommand("ghostty.getTerminalTheme", async () => {
+    const theme = await context.globalState.get("terminalTheme") ?? GHOSTTY_PRESETS[0].terminalTheme;
+    const config = await context.globalState.get("terminalConfig") ?? {};
     return { theme, config };
   });
   context.subscriptions.push(applyThemeCmd, importConfigCmd, listPresetsCmd, getActivePresetCmd, getTerminalThemeCmd);
