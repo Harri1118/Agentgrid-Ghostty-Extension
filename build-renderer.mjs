@@ -10,3 +10,17 @@ await build({
 })
 
 console.log('dist/extension.js built')
+
+await build({
+  entryPoints: ['src/renderer/index.tsx'],
+  bundle: true,
+  format: 'iife',
+  platform: 'browser',
+  outfile: 'dist/renderer.js',
+  alias: {
+    'react': './src/renderer/react-shim.ts',
+  },
+  external: [],
+})
+
+console.log('dist/renderer.js built')

@@ -1,9 +1,19 @@
-import * as React from 'react'
+const injected = (globalThis as Record<string, unknown>).__agentgrid_react as typeof import('react') | undefined
 
-const injectedReact = (globalThis as Record<string, unknown>).__agentgrid_react as typeof React | undefined
-
-if (injectedReact) {
-  Object.assign(React, injectedReact)
+if (!injected) {
+  throw new Error('__agentgrid_react not available — renderer must run inside AgentGrid host')
 }
 
-export { React }
+export default injected
+export const {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useContext,
+  useReducer,
+  createElement,
+  Fragment,
+  createContext,
+} = injected
